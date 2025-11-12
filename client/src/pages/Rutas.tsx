@@ -25,8 +25,8 @@ interface Ruta {
 }
 
 export default function Rutas() {
-  const [destinoFilter, setDestinoFilter] = useState("");
-  const [dificultadFilter, setDificultadFilter] = useState("");
+  const [destinoFilter, setDestinoFilter] = useState("todos");
+  const [dificultadFilter, setDificultadFilter] = useState("todas");
   const [precioMax, setPrecioMax] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -40,8 +40,8 @@ export default function Rutas() {
   };
 
   const clearFilters = () => {
-    setDestinoFilter("");
-    setDificultadFilter("");
+    setDestinoFilter("todos");
+    setDificultadFilter("todas");
     setPrecioMax("");
     setSearchQuery("");
     setSelectedTags([]);
@@ -49,8 +49,8 @@ export default function Rutas() {
 
   const queryParams = useMemo(() => {
     const params: Record<string, string> = {};
-    if (destinoFilter) params.destino = destinoFilter;
-    if (dificultadFilter) params.dificultad = dificultadFilter;
+    if (destinoFilter && destinoFilter !== "todos") params.destino = destinoFilter;
+    if (dificultadFilter && dificultadFilter !== "todas") params.dificultad = dificultadFilter;
     if (precioMax) params.precioMax = precioMax;
     if (searchQuery) params.q = searchQuery;
     if (selectedTags.length > 0) params.tag = selectedTags.join(",");
@@ -115,7 +115,7 @@ export default function Rutas() {
                     <SelectValue placeholder="Todos los destinos" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos los destinos</SelectItem>
+                    <SelectItem value="todos">Todos los destinos</SelectItem>
                     <SelectItem value="Salento">Salento</SelectItem>
                     <SelectItem value="Filandia">Filandia</SelectItem>
                     <SelectItem value="Manizales">Manizales</SelectItem>
@@ -133,7 +133,7 @@ export default function Rutas() {
                     <SelectValue placeholder="Todas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="todas">Todas</SelectItem>
                     <SelectItem value="Fácil">Fácil</SelectItem>
                     <SelectItem value="Moderado">Moderado</SelectItem>
                     <SelectItem value="Avanzado">Avanzado</SelectItem>
