@@ -1,181 +1,245 @@
 import { db } from "./db";
-import { users, rutas } from "@shared/schema";
+import { users, rutas, reservas } from "@shared/schema";
 import { hashPassword } from "./auth";
 
 async function seed() {
   console.log("🌱 Iniciando seed de la base de datos...");
 
   try {
-    // Crear usuario administrador
-    const adminPassword = await hashPassword("admin123");
-    const [admin] = await db
+    // Limpiar datos existentes
+    console.log("Limpiando datos existentes...");
+    await db.delete(reservas);
+    await db.delete(rutas);
+    await db.delete(users);
+
+    // Crear usuarios
+    console.log("Creando usuarios...");
+    const hashedPassword = await hashPassword("123456");
+
+    const [admin, anfitrion, guia, turista1, turista2] = await db
       .insert(users)
-      .values({
-        nombre: "Administrador",
-        email: "admin@ejecafetero.com",
-        password: adminPassword,
-        rol: "admin",
-      })
-      .onConflictDoNothing()
+      .values([
+        {
+          nombre: "Administrador",
+          email: "admin@ejcafetero.com",
+          password: hashedPassword,
+          rol: "admin",
+        },
+        {
+          nombre: "Carlos Mendoza",
+          email: "carlos@ejcafetero.com",
+          password: hashedPassword,
+          rol: "anfitrion",
+        },
+        {
+          nombre: "Laura Gómez",
+          email: "laura@ejcafetero.com",
+          password: hashedPassword,
+          rol: "guia",
+        },
+        {
+          nombre: "María García",
+          email: "maria@email.com",
+          password: hashedPassword,
+          rol: "turista",
+        },
+        {
+          nombre: "Juan Pérez",
+          email: "juan@email.com",
+          password: hashedPassword,
+          rol: "turista",
+        },
+      ])
       .returning();
 
-    console.log("✅ Usuario admin creado:", admin?.email || "ya existía");
+    console.log("✅ Usuarios creados");
 
-    // Crear usuario de prueba
-    const userPassword = await hashPassword("usuario123");
-    const [user] = await db
-      .insert(users)
-      .values({
-        nombre: "Juan Pérez",
-        email: "juan@example.com",
-        password: userPassword,
-        rol: "turista",
-      })
-      .onConflictDoNothing()
+    // Crear rutas
+    console.log("Creando rutas...");
+    const rutasData = await db
+      .insert(rutas)
+      .values([
+        {
+          nombre: "Valle del Cocora",
+          descripcion:
+            "Explora el emblemático Valle del Cocora, hogar de las palmas de cera más altas del mundo. Una experiencia inolvidable rodeado de naturaleza exuberante y paisajes montañosos.",
+          destino: "Salento",
+          dificultad: "Moderado",
+          duracion: "6-8 horas",
+          duracionHoras: 7,
+          precio: 120000,
+          precioPorPersona: 120000,
+          imagenUrl:
+            "https://images.unsplash.com/photo-1587595431973-160d0d94add1?w=800&q=80",
+          cupoMaximo: 15,
+          rating: "4.8",
+          resenas: 156,
+          anfitrionId: anfitrion.id,
+          tags: ["naturaleza", "senderismo", "fotografía"],
+          puntosInteres: [
+            "Palmas de cera",
+            "Bosque de niebla",
+            "Casa de colibríes",
+          ],
+          disponible: true,
+        },
+        {
+          nombre: "Recorrido Colonial de Filandia",
+          descripcion:
+            "Descubre la arquitectura colonial y la cultura cafetera en uno de los pueblos más coloridos del Eje Cafetero. Incluye visita a miradores y degustación de café.",
+          destino: "Filandia",
+          dificultad: "Fácil",
+          duracion: "4-5 horas",
+          duracionHoras: 4,
+          precio: 80000,
+          precioPorPersona: 80000,
+          imagenUrl:
+            "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=800&q=80",
+          cupoMaximo: 20,
+          rating: "4.6",
+          resenas: 89,
+          anfitrionId: anfitrion.id,
+          tags: ["cultura", "café", "arquitectura"],
+          puntosInteres: [
+            "Mirador de Filandia",
+            "Calle del Tiempo Detenido",
+            "Finca cafetera",
+          ],
+          disponible: true,
+        },
+        {
+          nombre: "Nevado del Ruiz",
+          descripcion:
+            "Aventura extrema al volcán Nevado del Ruiz. Incluye transporte, equipo especializado y guía experto. Para aventureros experimentados.",
+          destino: "Manizales",
+          dificultad: "Avanzado",
+          duracion: "10-12 horas",
+          duracionHoras: 11,
+          precio: 350000,
+          precioPorPersona: 350000,
+          imagenUrl:
+            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+          cupoMaximo: 8,
+          rating: "4.9",
+          resenas: 45,
+          anfitrionId: anfitrion.id,
+          tags: ["aventura", "montañismo", "glaciar"],
+          puntosInteres: [
+            "Cráter del volcán",
+            "Glaciares",
+            "Lagunas de alta montaña",
+          ],
+          disponible: true,
+        },
+        {
+          nombre: "Parque del Café",
+          descripcion:
+            "Día completo en el Parque Nacional del Café. Disfruta de atracciones mecánicas, shows culturales y aprendizaje sobre el proceso del café.",
+          destino: "Montenegro",
+          dificultad: "Fácil",
+          duracion: "8 horas",
+          duracionHoras: 8,
+          precio: 95000,
+          precioPorPersona: 95000,
+          imagenUrl:
+            "https://images.unsplash.com/photo-1511537190424-bbbab87ac5eb?w=800&q=80",
+          cupoMaximo: 25,
+          rating: "4.7",
+          resenas: 234,
+          anfitrionId: anfitrion.id,
+          tags: ["familia", "parque temático", "café"],
+          puntosInteres: [
+            "Montaña rusa Krater",
+            "Show del café",
+            "Teleférico",
+          ],
+          disponible: true,
+        },
+        {
+          nombre: "Termales Santa Rosa de Cabal",
+          descripcion:
+            "Relájate en las aguas termales naturales de Santa Rosa de Cabal. Incluye caminata ecológica, baños termales y almuerzo típico.",
+          destino: "Pereira",
+          dificultad: "Fácil",
+          duracion: "6 horas",
+          duracionHoras: 6,
+          precio: 110000,
+          precioPorPersona: 110000,
+          imagenUrl:
+            "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&q=80",
+          cupoMaximo: 18,
+          rating: "4.5",
+          resenas: 178,
+          anfitrionId: anfitrion.id,
+          tags: ["relajación", "naturaleza", "termal"],
+          puntosInteres: [
+            "Piscinas termales",
+            "Cascada",
+            "Sendero ecológico",
+          ],
+          disponible: true,
+        },
+        {
+          nombre: "Ruta del Café Sevilla",
+          descripcion:
+            "Experiencia completa en una finca cafetera tradicional. Aprende todo el proceso del café desde la siembra hasta la taza. Incluye almuerzo campesino.",
+          destino: "Sevilla",
+          dificultad: "Fácil",
+          duracion: "5 horas",
+          duracionHoras: 5,
+          precio: 85000,
+          precioPorPersona: 85000,
+          imagenUrl:
+            "https://images.unsplash.com/photo-1447933601403-0c6688de566e?w=800&q=80",
+          cupoMaximo: 12,
+          rating: "4.8",
+          resenas: 92,
+          anfitrionId: anfitrion.id,
+          tags: ["café", "cultura", "gastronomía"],
+          puntosInteres: [
+            "Cultivos de café",
+            "Proceso de tostado",
+            "Cata de café",
+          ],
+          disponible: true,
+        },
+      ])
       .returning();
 
-    console.log("✅ Usuario de prueba creado:", user?.email || "ya existía");
+    console.log("✅ Rutas creadas");
 
-    // Crear rutas turísticas
-    const rutasData = [
+    // Crear reservas de ejemplo
+    console.log("Creando reservas...");
+    await db.insert(reservas).values([
       {
-        nombre: "Tour Salento y Pueblo Mágico",
-        descripcion:
-          "Descubre el encanto colonial de Salento, uno de los pueblos más coloridos de Colombia. Camina por sus calles empedradas, visita artesanías locales y disfruta de la arquitectura tradicional cafetera. Incluye visita al mirador y degustación de café.",
-        destino: "Salento, Quindío",
-        dificultad: "Fácil" as const,
-        duracion: "8 horas",
-        precio: 85000,
-        imagenUrl: "/assets/generated_images/Salento_town_route_destination_5fb0d1a7.png",
-        cupoMaximo: 15,
-        duracionHoras: 8,
-        precioPorPersona: 85000,
-        tags: ["cultura", "pueblo", "café", "fotografía"],
-        puntosInteres: ["Centro de Salento", "Mirador del pueblo", "Artesanías locales", "Cafés tradicionales"],
+        userId: turista1.id,
+        rutaId: rutasData[0].id,
+        fechaRuta: new Date("2025-12-15T08:00:00"),
+        cantidadPersonas: 2,
+        estado: "confirmada",
+        totalPagado: 240000,
       },
       {
-        nombre: "Caminata Valle de Cocora",
-        descripcion:
-          "Aventúrate en el Valle de Cocora, hogar de las palmas de cera más altas del mundo. Caminata de dificultad moderada por senderos montañosos, cruce de puentes colgantes y paisajes impresionantes. Incluye guía experto y almuerzo típico.",
-        destino: "Valle de Cocora",
-        dificultad: "Moderado" as const,
-        duracion: "6 horas",
-        precio: 120000,
-        imagenUrl: "/assets/generated_images/Valle_de_Cocora_palms_b0cf6489.png",
-        cupoMaximo: 12,
-        duracionHoras: 6,
-        precioPorPersona: 120000,
-        tags: ["naturaleza", "senderismo", "palmas", "aventura"],
-        puntosInteres: ["Valle de Cocora", "Palmas de cera", "Puentes colgantes", "Bosque de niebla"],
+        userId: turista2.id,
+        rutaId: rutasData[3].id,
+        fechaRuta: new Date("2025-12-20T09:00:00"),
+        cantidadPersonas: 4,
+        estado: "pendiente",
+        totalPagado: 380000,
       },
-      {
-        nombre: "Experiencia Cafetera Completa",
-        descripcion:
-          "Vive la experiencia completa del café colombiano en una hacienda tradicional. Participa en la recolección de café, aprende sobre el proceso de producción, y disfruta de una cata profesional. Incluye almuerzo campesino y transporte.",
-        destino: "Hacienda El Ocaso",
-        dificultad: "Fácil" as const,
-        duracion: "5 horas",
-        precio: 95000,
-        imagenUrl: "/assets/generated_images/Coffee_farm_hacienda_24d7dcc7.png",
-        cupoMaximo: 20,
-        duracionHoras: 5,
-        precioPorPersona: 95000,
-        tags: ["café", "hacienda", "gastronomía", "cultura"],
-        puntosInteres: ["Plantación de café", "Proceso de producción", "Cata profesional", "Almuerzo campesino"],
-      },
-      {
-        nombre: "Filandia y Mirador 360°",
-        descripcion:
-          "Explora Filandia, el pueblo de colores del Quindío. Sube al mirador 360° para vistas panorámicas de la región cafetera, visita talleres de artesanías y disfruta de la gastronomía local. Tour relajado ideal para familias.",
-        destino: "Filandia, Quindío",
-        dificultad: "Fácil" as const,
-        duracion: "4 horas",
-        precio: 75000,
-        imagenUrl: "/assets/generated_images/Filandia_viewpoint_6d15e32f.png",
-        cupoMaximo: 18,
-        duracionHoras: 4,
-        precioPorPersona: 75000,
-        tags: ["pueblo", "mirador", "artesanías", "familia"],
-        puntosInteres: ["Centro de Filandia", "Mirador 360°", "Talleres artesanales", "Gastronomía local"],
-      },
-      {
-        nombre: "Cata de Café Premium",
-        descripcion:
-          "Conviértete en catador de café por un día. Aprende a identificar notas y perfiles de sabor en diferentes variedades de café colombiano. Sesión guiada por barista profesional en finca cafetera. Perfecto para amantes del café.",
-        destino: "Finca Cafetera",
-        dificultad: "Fácil" as const,
-        duracion: "3 horas",
-        precio: 65000,
-        imagenUrl: "/assets/generated_images/Coffee_tasting_experience_1273dbb0.png",
-        cupoMaximo: 10,
-        duracionHoras: 3,
-        precioPorPersona: 65000,
-        tags: ["café", "cata", "profesional", "degustación"],
-        puntosInteres: ["Finca cafetera", "Variedades de café", "Sesión con barista", "Cata guiada"],
-      },
-      {
-        nombre: "Aventura Cocora Completa",
-        descripcion:
-          "Ruta completa de senderismo en el Valle de Cocora. Incluye caminata de 12km por bosque de niebla, avistamiento de aves, visita a cascadas escondidas y almuerzo en finca. Para aventureros experimentados. Guía especializado incluido.",
-        destino: "Valle de Cocora",
-        dificultad: "Avanzado" as const,
-        duracion: "1 día",
-        precio: 150000,
-        imagenUrl: "/assets/generated_images/Valle_de_Cocora_palms_b0cf6489.png",
-        cupoMaximo: 8,
-        duracionHoras: 8,
-        precioPorPersona: 150000,
-        tags: ["senderismo", "aventura", "naturaleza", "avanzado"],
-        puntosInteres: ["Valle de Cocora", "Bosque de niebla", "Cascadas", "Avistamiento de aves"],
-      },
-      {
-        nombre: "Tour Nocturno del Café",
-        descripcion:
-          "Experimenta la vida nocturna de una finca cafetera. Observa luciérnagas, escucha los sonidos de la noche y participa en una fogata con historias cafeteras. Incluye cena típica y bebidas calientes. Una experiencia única y mágica.",
-        destino: "Hacienda El Ocaso",
-        dificultad: "Fácil" as const,
-        duracion: "4 horas",
-        precio: 80000,
-        imagenUrl: "/assets/generated_images/Coffee_farm_hacienda_24d7dcc7.png",
-        cupoMaximo: 16,
-        duracionHoras: 4,
-        precioPorPersona: 80000,
-        tags: ["nocturno", "luciérnagas", "fogata", "experiencia"],
-        puntosInteres: ["Finca cafetera", "Luciérnagas", "Fogata", "Cena típica"],
-      },
-      {
-        nombre: "Circuito de Pueblos Cafeteros",
-        descripcion:
-          "Recorre los tres pueblos más emblemáticos del Eje Cafetero: Salento, Filandia y Pijao. Tour completo que incluye visitas guiadas, tiempo libre en cada pueblo, almuerzo y transporte. Conoce la diversidad cultural de la región.",
-        destino: "Salento, Quindío",
-        dificultad: "Fácil" as const,
-        duracion: "1 día",
-        precio: 110000,
-        imagenUrl: "/assets/generated_images/Salento_town_route_destination_5fb0d1a7.png",
-        cupoMaximo: 20,
-        duracionHoras: 8,
-        precioPorPersona: 110000,
-        tags: ["pueblos", "cultura", "tour", "gastronomía"],
-        puntosInteres: ["Salento", "Filandia", "Pijao", "Almuerzo incluido"],
-      },
-    ];
+    ]);
 
-    for (const rutaData of rutasData) {
-      const [ruta] = await db
-        .insert(rutas)
-        .values(rutaData)
-        .onConflictDoNothing()
-        .returning();
-      
-      if (ruta) {
-        console.log(`✅ Ruta creada: ${ruta.nombre}`);
-      }
-    }
+    console.log("✅ Reservas creadas");
 
     console.log("\n🎉 Seed completado exitosamente!");
-    console.log("\n📝 Credenciales de prueba:");
-    console.log("   Admin: admin@ejecafetero.com / admin123");
-    console.log("   Usuario: juan@example.com / usuario123");
+    console.log("\n📧 Usuarios creados:");
+    console.log("   Admin: admin@ejcafetero.com / 123456");
+    console.log("   Anfitrión: carlos@ejcafetero.com / 123456");
+    console.log("   Guía: laura@ejcafetero.com / 123456");
+    console.log("   Turista 1: maria@email.com / 123456");
+    console.log("   Turista 2: juan@email.com / 123456");
+    console.log(`\n🗺️  ${rutasData.length} rutas creadas`);
+    console.log("📋 2 reservas de ejemplo creadas");
     
     process.exit(0);
   } catch (error) {
