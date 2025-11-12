@@ -1,0 +1,109 @@
+1) Actores
+
+Turista: navega rutas, filtra/busca, reserva, consulta sus reservas.
+
+Anfitrión: publica/edita/elimina sus rutas, ve reservas de sus rutas, cambia estado.
+
+Guía: consulta rutas, (opcional) asignable a una ruta.
+
+Admin: CRUD global (usuarios/rutas/reservas), gestión de roles.
+
+Servicio de Pago (futuro/externo): opcional para confirmar pago.
+
+Sistema (Cron/Seed): carga datos iniciales y tareas programadas.
+
+2) Casos de uso (lista resumida)
+
+Para Turista
+
+Registrarse
+
+Iniciar sesión
+
+Buscar/filtrar rutas (por ubicación, dificultad, precio, texto)
+
+Ver detalle de ruta
+
+Crear reserva (calcular precio total)
+
+Ver mis reservas
+
+Para Anfitrión
+7. Crear ruta
+8. Actualizar ruta
+9. Eliminar ruta
+10. Ver reservas de mi ruta
+11. Cambiar estado de reserva (pendiente/confirmada/cancelada)
+
+Para Guía
+12. Consultar rutas / (opcional) Ver rutas asignadas
+
+Para Admin
+13. Gestionar usuarios (roles)
+14. CRUD global de rutas
+15. CRUD global de reservas
+
+Sistema
+16. Seed de datos
+17. Servir frontend build (modo producción)
+
+3) Casos de uso (MS/AF = Main Success / Alternate Flows)
+CU-1 Registrarse (Turista/Anfitrión/Guía/Admin)
+
+MS: Usuario envía {nombre, email, password, rol?} → valida → crea hash → guarda → retorna 201 + perfil.
+
+AF: Email ya existe → 409. Datos inválidos → 400.
+
+CU-2 Iniciar sesión
+
+MS: Envía {email, password} → valida → genera JWT → retorna token + perfil.
+
+AF: Credenciales inválidas → 401.
+
+CU-3 Buscar/Filtrar rutas
+
+MS: Envía filtros (ubicación, dificultad, precioMax, q/tags) → responde lista paginada.
+
+AF: Sin resultados → 200 [].
+
+CU-4 Ver detalle de ruta
+
+MS: GET /rutas/:id → 200 con datos + imágenes + puntosInterés.
+
+AF: No existe → 404.
+
+CU-5 Crear reserva (Turista)
+
+MS: Envía {rutaId, fecha, personas} → valida disponibilidad → calcula precioTotal → guarda → 201.
+
+AF: Ruta no disponible → 400. Fecha inválida → 400.
+
+CU-6 Ver mis reservas (Turista)
+
+MS: GET /reservas/mias con JWT → 200 lista.
+
+AF: No autenticado → 401.
+
+CU-7/8/9 CRUD Ruta (Anfitrión/Admin)
+
+MS: Crear/editar/eliminar respetando propiedad (anfitrión dueño) o rol admin.
+
+AF: Sin permiso → 403. Datos inválidos → 400.
+
+CU-10 Ver reservas por ruta (Anfitrión/Admin)
+
+MS: GET /reservas/por-ruta/:rutaId → 200 lista.
+
+AF: No es dueño ni admin → 403.
+
+CU-11 Cambiar estado de reserva (Anfitrión/Admin)
+
+MS: PUT /reservas/:id/estado → valida transición → 200.
+
+AF: Transición inválida → 400. Sin permiso → 403.
+
+CU-13/14/15 Gestión Admin
+
+MS: Operaciones globales → 200/201.
+
+AF: Validación/Integridad → 400.

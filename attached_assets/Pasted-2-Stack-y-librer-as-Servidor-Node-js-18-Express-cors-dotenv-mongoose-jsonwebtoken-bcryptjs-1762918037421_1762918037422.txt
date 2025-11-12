@@ -1,0 +1,243 @@
+2) Stack y librerías
+
+Servidor: Node.js 18+, Express, cors, dotenv, mongoose, jsonwebtoken, bcryptjs, zod (o joi), morgan, helmet, compression.
+
+Cliente: React 18 con Vite, React Router, TailwindCSS, axios, react-hook-form, zod resolver.
+
+Autenticación: JWT (access token en HTTP-only cookie o localStorage firmado; si usas cookie, configura sameSite: "lax").
+
+DB: MongoDB Atlas (variable MONGODB_URI).
+
+Build & Run único: un script raíz que lance server y client (usa concurrently o npm-run-all) y sirva React desde Express en producción (build en /client/dist y app.use(express.static(...))).
+
+3) Modelo de datos (Mongoose)
+
+User
+
+nombre (string, requerido)
+
+email (string, requerido, único)
+
+passwordHash (string, requerido)
+
+rol (enum: "turista" | "anfitrion" | "guia" | "admin", default "turista")
+
+createdAt (Date, default now)
+
+Ruta
+
+titulo (string, requerido)
+
+descripcion (string, requerido)
+
+ubicacion (string, requerido; ej: “Salento, Quindío”)
+
+dificultad (enum: "baja" | "media" | "alta")
+
+duracionHoras (number)
+
+precioPorPersona (number)
+
+imagenes (string[]; URLs)
+
+anfitrionId (ObjectId → User con rol “anfitrion”)
+
+puntosInteres (array de { nombre, descripcion, lat, lng })
+
+tags (string[])
+
+disponible (boolean, default true)
+
+timestamps
+
+Reserva
+
+rutaId (ObjectId → Ruta)
+
+usuarioId (ObjectId → User turista)
+
+fecha (Date)
+
+personas (number, min 1)
+
+estado (enum: "pendiente" | "confirmada" | "cancelada", default "pendiente")
+
+precioTotal (number)
+
+timestamps
+
+4) Roles y permisos
+
+turista: puede ver rutas, filtrar/buscar, crear reservas, ver sus reservas.
+
+anfitrion: CRUD sólo de sus propias rutas; ver reservas de sus rutas; actualizar estado de reserva.
+
+guia: ver rutas; puede ser asignado como guía a una ruta (campo opcional guiaId si lo deseas); acceso de lectura ampliado.
+
+admin: CRUD global (usuarios, rutas, reservas).
+
+5) API REST (prefijo /api)
+
+Autenticación:
+
+POST /api/auth/register { nombre, email, password, rol? } → crea usuario (password hash).
+
+POST /api/auth/login { email, password } → retorna JWT + perfil.
+
+GET /api/auth/me → perfil del usuario logueado.
+
+POST /api/auth/logout → invalida sesión (si usas cookies, borrar cookie).
+
+Rutas:
+
+GET /api/rutas → lista con filtros por ubicacion, precioMax, dificultad, tag, q (texto).
+
+GET /api/rutas/:id
+
+Protegidas según rol:
+
+POST /api/rutas (anfitrion/admin)
+
+PUT /api/rutas/:id (propietario anfitrión o admin)
+
+DELETE /api/rutas/:id (propietario anfitrión o admin)
+
+Reservas:
+
+GET /api/reservas/mias (turista) → sus reservas
+
+POST /api/reservas { rutaId, fecha, personas } (turista) → calcula precioTotal = personas * precioPorPersona
+
+PUT /api/reservas/:id/estado (anfitrion admin) → cambiar estado
+
+GET /api/reservas/por-ruta/:rutaId (anfitrion/admin) → reservas de su ruta
+
+Validación:
+
+Usa zod o joi para validar body/params y responde 400 con errores claros.
+
+6) Frontend (React + Tailwind)
+
+Diseño responsive “mobile-first”, sin scroll lateral, menú hamburguesa, tipografía legible.
+
+Páginas:
+
+Home: héroe con buscador (ubicación, dificultad, precio máx, texto), grid de tarjetas de rutas (CardRuta) con imagen, precio, duración, tag de dificultad, botón “Ver”.
+
+Rutas: listado con FiltroRutas (selects + rango precio + buscador).
+
+RutaDetalle: galería de imágenes, descripción, puntos de interés (lista), botón “Reservar” que abre FormReserva (fecha, personas) → POST API.
+
+Login/Register: formularios con validación (react-hook-form + zod).
+
+Reservas: tabla simple de reservas del usuario logueado.
+
+AdminPanel: CRUD usuarios/rutas/reservas (según rol).
+
+Navbar: logo “Rutas del Eje Cafetero”, links (Home, Rutas, Reservas), botón Login/Perfil; en móvil menú desplegable.
+
+Estado de sesión: guardar token y perfil de usuario; redirigir según rol.
+
+Feedback UX: spinners, toasts básicos (puede ser un componente simple) y manejo de errores.
+
+7) Semilla de datos (seed)
+
+En server/seed/seed.js agrega:
+
+1 admin, 1 anfitrión, 1 guía, 2 turistas (password 123456).
+
+6 rutas de ejemplo (Salento, Filandia, Montenegro, Manizales, Pereira, Sevilla Valle) con imágenes públicas (URLs), precios variados, dificultades variadas, puntos de interés (ej. miradores, fincas cafeteras, cascadas).
+
+2–3 reservas de prueba.
+
+Crea script npm npm run seed que conecte a MONGODB_URI, limpie colecciones y cargue datos.
+
+8) Seguridad y calidad
+
+Habilitar helmet, cors (desde origen del frontend en dev), compression, morgan dev.
+
+Sanitizar entradas y validar.
+
+No exponer passwordHash en respuestas.
+
+Manejo de errores centralizado (middleware de errores).
+
+.env.example con:
+
+PORT=3000
+CLIENT_URL=http://localhost:5173
+JWT_SECRET=supersecret
+MONGODB_URI=<tu cadena de MongoDB Atlas>
+
+
+En producción (Replit), servir el build React desde Express (/client/dist) y mapear /* a index.html.
+
+9) Scripts NPM (root y subproyectos)
+
+En /server:
+
+dev: nodemon src/server.js
+
+start: node src/server.js
+
+seed: node seed/seed.js
+
+En /client:
+
+dev: vite
+
+build: vite build
+
+preview: vite preview
+
+En root:
+
+postinstall: cd server && npm i && cd ../client && npm i
+
+dev: usar concurrently para "cd server && npm run dev" y "cd client && npm run dev"
+
+build: "cd client && npm run build"
+
+start: modo producción: "cd client && npm run build && cd ../server && npm run start"
+
+10) Flujo de ejecución en Replit
+
+Al pulsar Run:
+
+Instala dependencias si faltan.
+
+Verifica variables de entorno (si no hay .env, crea uno a partir de .env.example dejando notas).
+
+Si SEED_ON_BOOT=true en .env, ejecuta npm run seed.
+
+Ejecuta npm run start en modo producción sirviendo el build del frontend desde Express.
+
+Muestra en consola las URLs de API y de la app.
+
+11) Criterios de aceptación (PC y móvil)
+
+Sin errores en consola del navegador ni del servidor.
+
+UI responsive: navbar colapsa en móvil, cards en 1–2 columnas móvil y 3–4 en desktop.
+
+CRUD rutas correcto según rol; reservas funcionales para turista.
+
+Login/Register funcionales; persistencia de sesión.
+
+Filtro de rutas por ubicación, precio y dificultad funcionando.
+
+Seed genera datos visibles de inmediato.
+
+Código comentado y README.md con instrucciones (configurar MongoDB Atlas, variables, scripts, cómo cambiar a otra DB si se requiere).
+
+12) Extras (si el tiempo alcanza)
+
+PWA básica: manifest, service worker para cache estática.
+
+Campo opcional coordenadas y mapa (leaflet) en detalle de ruta.
+
+Subida de imágenes por URL (validar).
+
+Rate limit básico para /auth.
+
+IMPORTANTE: Entrega el proyecto listo para correr en Replit con un solo Run y deja notas claras en README para completar MONGODB_URI y JWT_SECRET. Implementa todo lo necesario para que sea funcional sin pasos manuales extra (salvo pegar la cadena de conexión).
