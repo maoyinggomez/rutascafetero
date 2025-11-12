@@ -22,21 +22,31 @@ Plataforma web para descubrir y reservar rutas turísticas en el Eje Cafetero co
 ## Casos de Uso
 
 ```mermaid
-flowchart LR
-  Turista-->Buscar[Buscar/Filtrar rutas]
-  Turista-->Detalle[Ver detalle de ruta]
-  Turista-->Reservar[Crear reserva]
-  Turista-->MisRes[Ver mis reservas]
-
-  Anfitrion-->CR[CRUD de sus rutas]
-  Anfitrion-->VR[Ver reservas de su ruta]
-  Anfitrion-->CE[Cambiar estado de reserva]
-
-  Admin-->GU[Gestionar usuarios]
-  Admin-->GR[CRUD global rutas]
-  Admin-->GRes[CRUD global reservas]
-
-  Sistema-->Seed[Seed de datos]
+graph TB
+    Turista((Turista))
+    Anfitrion((Anfitrión))
+    Admin((Admin))
+    Sistema((Sistema))
+    
+    Turista --> UC1[Buscar/Filtrar rutas]
+    Turista --> UC2[Ver detalle de ruta]
+    Turista --> UC3[Crear reserva]
+    Turista --> UC4[Ver mis reservas]
+    
+    Anfitrion --> UC5[CRUD de sus rutas]
+    Anfitrion --> UC6[Ver reservas de su ruta]
+    Anfitrion --> UC7[Cambiar estado de reserva]
+    
+    Admin --> UC8[Gestionar usuarios]
+    Admin --> UC9[CRUD global rutas]
+    Admin --> UC10[CRUD global reservas]
+    
+    Sistema --> UC11[Seed de datos]
+    
+    style Turista fill:#e1f5ff
+    style Anfitrion fill:#fff4e1
+    style Admin fill:#ffe1e1
+    style Sistema fill:#e1ffe1
 ```
 
 ## Modelo de Datos

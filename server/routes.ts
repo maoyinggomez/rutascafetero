@@ -245,7 +245,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json(reserva);
       } catch (error: any) {
-        res.status(error.message.includes("permisos") ? 403 : 400).json({ 
+        const statusCode = error.message.includes("permisos") ? 403 
+          : error.message.includes("no encontrada") ? 404 
+          : 400;
+        res.status(statusCode).json({ 
           error: error.message || "Error al actualizar reserva" 
         });
       }
