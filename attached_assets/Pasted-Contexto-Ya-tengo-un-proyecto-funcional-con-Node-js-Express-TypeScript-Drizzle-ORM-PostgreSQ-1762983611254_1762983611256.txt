@@ -1,0 +1,129 @@
+Contexto: Ya tengo un proyecto funcional con Node.js + Express + TypeScript + Drizzle ORM (PostgreSQL) y React + Vite + Tailwind.
+Ya están listos: roles (turista, anfitrion, guia, admin), modelo rutas extendido (anfitrionId, duracionHoras, precioPorPersona, tags, puntosInteres, disponible, rating, resenas), filtros en GET /api/rutas (destino, dificultad, precioMax, q, tag), GET /api/reservas/por-ruta/:rutaId, y métodos getReservasPorRuta / cambiarEstadoReserva en storage.
+No cambies de base de datos ni el stack.
+
+Necesito que apliques estos ajustes finales:
+
+1) Backend – Endpoint faltante para cambiar estado de reserva
+
+Archivo: server/routes.ts
+Objetivo: Agregar el handler para PUT /api/reservas/:id/estado con auth y roles (anfitrion, admin). Usa el método ya existente storage.cambiarEstadoReserva(...).
+
+Implementa este handler (ajusta imports si hace falta):
+
+app.put(
+  "/api/reservas/:id/estado",
+  authenticate,
+  authorizeRole(["anfitrion", "admin"]),
+  async (req, res) => {
+    try {
+      const { estado } = req.body; // "pendiente" | "confirmada" | "cancelada"
+      if (!estado) return res.status(400).json({ error: "Falta 'estado' en el body" });
+
+      const updated = await storage.cambiarEstadoReserva(
+        req.params.id,
+        estado,
+        req.user! // valida aquí o dentro de storage la propiedad si es anfitrión
+      );
+
+      if (!updated) return res.status(404).json({ error: "Reserva no encontrada" });
+      res.json(updated);
+    } catch (error: any) {
+      res
+        .status(400)
+        .json({ error: error?.message || "Error al actualizar estado de la reserva" });
+    }
+  }
+);
+
+
+Plus (opcional recomendado): dentro de storage.cambiarEstadoReserva, si req.user.rol === "anfitrion", valida que la reserva pertenezca a una ruta cuyo anfitrionId = req.user.userId (JOIN con rutas o consulta previa).
+
+2) Documentación – Añadir UML (Mermaid) al README
+
+Archivo: README.md
+Agrega las siguientes secciones con Mermaid para dejar la doc completa.
+
+Casos de uso (resumen):
+
+flowchart LR
+  Turista-->Buscar[Buscar/Filtrar rutas]
+  Turista-->Detalle[Ver detalle de ruta]
+  Turista-->Reservar[Crear reserva]
+  Turista-->MisRes[Ver mis reservas]
+
+  Anfitrion-->CR[CRUD de sus rutas]
+  Anfitrion-->VR[Ver reservas de su ruta]
+  Anfitrion-->CE[Cambiar estado de reserva]
+
+  Admin-->GU[Gestionar usuarios]
+  Admin-->GR[CRUD global rutas]
+  Admin-->GRes[CRUD global reservas]
+
+  Sistema-->Seed[Seed de datos]
+
+
+Modelo de clases:
+
+classDiagram
+  class User {
+    id: string
+    nombre: string
+    email: string
+    password: string
+    rol: "turista|anfitrion|guia|admin"
+  }
+
+  class Ruta {
+    id: string
+    nombre: string
+    descripcion: string
+    destino: string
+    dificultad: "Fácil|Moderado|Avanzado"
+    duracionHoras: number
+    precioPorPersona: number
+    imagenUrl: string
+    disponible: boolean
+    tags: string[]
+    puntosInteres: string[]
+    anfitrionId: string
+  }
+
+  class Reserva {
+    id: string
+    userId: string
+    rutaId: string
+    fechaRuta: Date
+    cantidadPersonas: number
+    estado: "pendiente|confirmada|cancelada"
+    totalPagado: number
+  }
+
+  User "1" <-- "many" Ruta : anfitrionId
+  User "1" <-- "many" Reserva : usuario
+  Ruta "1" <-- "many" Reserva : se reserva
+
+3) (Opcional pero recomendado) Script de seed rápido
+
+Archivo sugerido: server/seed.ts
+Crear 5 usuarios (1 admin, 1 anfitrión, 1 guía, 2 turistas; contraseña “123456”), 6 rutas (Salento, Filandia, Manizales, Pereira, Montenegro, Sevilla) con precioPorPersona, duracionHoras, tags, puntosInteres y anfitrionId del anfitrión; y 2 reservas de ejemplo.
+Añade script npm "seed": "tsx server/seed.ts" y deja el README con pasos:
+
+npm run db:push
+npm run seed
+npm run dev
+
+4) Validaciones rápidas
+
+El proyecto debe compilar y correr con:
+
+npm install
+npm run db:push
+npm run dev
+
+
+PUT /api/reservas/:id/estado funciona con anfitrión/admin y devuelve JSON correcto.
+
+README actualizado con los dos bloques Mermaid anteriores.
+
+No cambies el stack ni la base de datos. Mantén Drizzle + PostgreSQL y la arquitectura actual.
