@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { MapPin, Clock, Users, Star } from "lucide-react";
 
+
+
 interface Ruta {
   id: string;
   nombre: string;
@@ -34,7 +36,7 @@ interface Ruta {
 export default function RutaDetalle() {
   const [, params] = useRoute("/rutas/:id");
   const [, setLocation] = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -47,64 +49,68 @@ export default function RutaDetalle() {
   });
 
   const reservaMutation = useMutation({
-    mutationFn: async (data: {
-      rutaId: string;
-      fechaRuta: string;
-      cantidadPersonas: number;
-      totalPagado: number;
-    }) => {
-      return apiRequest("POST", "/api/reservas", data);
-    },
-    onSuccess: () => {
-      toast({
-        title: "¡Reserva creada!",
-        description: "Tu reserva ha sido creada exitosamente",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api", "reservas"] });
-      setLocation("/reservas");
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo crear la reserva",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleReservar = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!isAuthenticated) {
-      toast({
-        title: "Inicia sesión",
-        description: "Debes iniciar sesión para hacer una reserva",
-        variant: "destructive",
-      });
-      setLocation("/login");
-      return;
-    }
-
-    if (!fechaRuta) {
-      toast({
-        title: "Fecha requerida",
-        description: "Por favor selecciona una fecha para tu reserva",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!ruta) return;
-
-    const precioUnitario = ruta.precioPorPersona || ruta.precio;
-    
-    reservaMutation.mutate({
-      rutaId: ruta.id,
-      fechaRuta: new Date(fechaRuta).toISOString(),
-      cantidadPersonas,
-      totalPagado: precioUnitario * cantidadPersonas,
+      mutationFn: async (data: {
+        rutaId: string;
+        userId: string;
+        fechaRuta: string;
+        cantidadPersonas: number;
+        totalPagado: number;
+      }) => {
+        return apiRequest("POST", "/api/reservas", data);
+      },
+      onSuccess: () => {
+        toast({
+          title: "¡Reserva creada!",
+          description: "Tu reserva ha sido creada exitosamente",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api", "reservas"] });
+        setLocation("/reservas");
+      },
+      onError: (error: any) => {
+        toast({
+          title: "Error",
+          description: error.message || "No se pudo crear la reserva",
+          variant: "destructive",
+        });
+      },
     });
-  };
+
+const handleReservar = (e: React.FormEvent) => {
+  e.preventDefault();
+
+  if (!isAuthenticated) {
+    toast({
+      title: "Inicia sesión",
+      description: "Debes iniciar sesión para hacer una reserva",
+      variant: "destructive",
+    });
+    setLocation("/login");
+    return;
+  }
+
+  if (!fechaRuta) {
+    toast({
+      title: "Fecha requerida",
+      description: "Por favor selecciona una fecha para tu reserva",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  if (!ruta) return;
+
+  const precioUnitario = ruta.precioPorPersona || ruta.precio;
+
+  // 👇 Este es el cambio importante
+  reservaMutation.mutate({
+    rutaId: ruta.id,
+    userId: user?.id ?? "", // ✅ ahora se envía el usuario logueado
+    fechaRuta: fechaRuta,
+ // ✅ formato string ISO correcto
+    cantidadPersonas: Number(cantidadPersonas),
+    totalPagado: precioUnitario * cantidadPersonas,
+  });
+};
 
   if (isLoading) {
     return (

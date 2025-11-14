@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { db } from "./db";
 import { users, rutas, reservas } from "@shared/schema";
 import { hashPassword } from "./auth";
