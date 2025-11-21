@@ -345,6 +345,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // PATCH para actualizar estado de reserva (desde anfitrion panel)
+  app.patch(
+    "/api/reservas/:id",
+    authenticate,
+    authorizeRole(["anfitrion", "admin"]),
+    async (req, res) => {
+      try {
+        const { estado } = req.body;
+        if (!["pendiente", "confirmada", "cancelada"].includes(estado)) {
+          return res.status(400).json({ error: "Estado inválido" });
+        }
+
+        const reserva = await storage.cambiarEstadoReserva(req.params.id, estado, req.user!);
+        if (!reserva) {
+          return res.status(404).json({ error: "Reserva no encontrada" });
+        }
+
+        res.json(reserva);
+      } catch (error: any) {
+        const statusCode = error.message.includes("permisos") ? 403 
+          : error.message.includes("no encontrada") ? 404 
+          : 400;
+        res.status(statusCode).json({ 
+          error: error.message || "Error al actualizar reserva" 
+        });
+      }
+    }
+  );
+
   const httpServer = createServer(app);
 
   return httpServer;

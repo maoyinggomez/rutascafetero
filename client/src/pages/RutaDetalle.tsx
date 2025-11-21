@@ -61,7 +61,7 @@ export default function RutaDetalle() {
       onSuccess: () => {
         toast({
           title: "¡Reserva creada!",
-          description: "Tu reserva ha sido creada exitosamente",
+          description: "Pendiente de confirmación por parte del anfitrión",
         });
         queryClient.invalidateQueries({ queryKey: ["/api", "reservas"] });
         setLocation("/reservas");

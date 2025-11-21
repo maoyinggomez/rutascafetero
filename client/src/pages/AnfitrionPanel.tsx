@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import Navbar from "@/components/Navbar";
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, DollarSign, Plus, Trash2, Edit } from "lucide-react";
+import { MapPin, Users, DollarSign, Plus, Trash2, Edit, CheckCircle, XCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +65,7 @@ export default function AnfitrionPanel() {
   const { isAuthenticated, user, isLoading: authLoading, isAnfitrion } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRuta, setEditingRuta] = useState<Ruta | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -116,6 +117,7 @@ export default function AnfitrionPanel() {
   const totalRutas = misRutasFiltradas.length;
   const totalReservas = misReservas.length;
   const reservasConfirmadas = misReservas.filter(r => r.estado === "confirmada").length;
+  const reservasPendientes = misReservas.filter(r => r.estado === "pendiente").length;
   const ingresoTotal = misReservas
     .filter(r => r.estado === "confirmada")
     .reduce((sum, r) => sum + r.totalPagado, 0);
@@ -167,6 +169,39 @@ export default function AnfitrionPanel() {
     setEditingRuta(null);
   };
 
+  const handleActualizarReserva = async (reservaId: string, nuevoEstado: "confirmada" | "cancelada") => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch(`/api/reservas/${reservaId}`, {
+        method: "PATCH",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al actualizar reserva");
+      }
+
+      toast({
+        title: "Éxito",
+        description: nuevoEstado === "confirmada" ? "Reserva confirmada" : "Reserva cancelada",
+      });
+
+      // Refetch reservas
+      queryClient.invalidateQueries({ queryKey: ["/api", "reservas"] });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -184,7 +219,7 @@ export default function AnfitrionPanel() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Mis Rutas</CardTitle>
@@ -207,11 +242,21 @@ export default function AnfitrionPanel() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Confirmadas</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
+                <Clock className="h-4 w-4 text-yellow-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{reservasConfirmadas}</div>
+                <div className="text-2xl font-bold text-yellow-600">{reservasPendientes}</div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Confirmadas</CardTitle>
+                <CheckCircle className="h-4 w-4 text-green-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">{reservasConfirmadas}</div>
               </CardContent>
             </Card>
 
@@ -229,7 +274,15 @@ export default function AnfitrionPanel() {
           <Tabs defaultValue="rutas" className="space-y-4">
             <TabsList>
               <TabsTrigger value="rutas">Mis Rutas</TabsTrigger>
-              <TabsTrigger value="reservas">Reservas</TabsTrigger>
+              <TabsTrigger value="pendientes" className="relative">
+                Pendientes
+                {reservasPendientes > 0 && (
+                  <span className="ml-2 bg-yellow-500 text-white text-xs rounded-full px-2 py-0.5">
+                    {reservasPendientes}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="reservas">Todas las Reservas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rutas" className="space-y-4">
@@ -335,10 +388,79 @@ export default function AnfitrionPanel() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="pendientes" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reservas Pendientes de Confirmación</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {reservasLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </div>
+                  ) : misReservas.filter(r => r.estado === "pendiente").length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay reservas pendientes
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {misReservas.filter(r => r.estado === "pendiente").map((reserva) => {
+                        const ruta = misRutasFiltradas.find(r => r.id === reserva.rutaId);
+                        return (
+                          <div 
+                            key={reserva.id} 
+                            className="border rounded-lg p-4 hover:bg-muted/50 transition"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div>
+                                <h3 className="font-semibold">{ruta?.nombre || "Ruta desconocida"}</h3>
+                                <p className="text-sm text-muted-foreground">
+                                  {format(new Date(reserva.fechaRuta), "dd/MM/yyyy")} - {reserva.cantidadPersonas} personas
+                                </p>
+                              </div>
+                              <span className="text-lg font-bold text-primary">
+                                ${reserva.totalPagado.toLocaleString()}
+                              </span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
+                                onClick={() => handleActualizarReserva(reserva.id, "confirmada")}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-2" />
+                                Confirmar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  if (confirm("¿Está seguro de rechazar esta reserva?")) {
+                                    handleActualizarReserva(reserva.id, "cancelada");
+                                  }
+                                }}
+                              >
+                                <XCircle className="h-4 w-4 mr-2" />
+                                Rechazar
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="reservas" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Reservas de tus Rutas</CardTitle>
+                  <CardTitle>Todas tus Reservas</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {reservasLoading ? (
