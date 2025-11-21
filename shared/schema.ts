@@ -60,6 +60,9 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
   rating: true,
   resenas: true,
   disponible: true,
+}).extend({
+  imagenUrl: z.string().optional(),
+  anfitrionId: z.string().optional(),
 });
 
 export const insertReservaSchema = createInsertSchema(reservas).omit({

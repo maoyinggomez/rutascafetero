@@ -1,0 +1,369 @@
+import { useState } from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Upload, X } from "lucide-react";
+
+const rutaSchema = z.object({
+  nombre: z.string().min(3, "Mínimo 3 caracteres"),
+  descripcion: z.string().min(10, "Mínimo 10 caracteres"),
+  destino: z.string().min(2, "Ingresa un destino"),
+  dificultad: z.enum(["Fácil", "Moderado", "Avanzado"]),
+  duracion: z.string().min(1, "Ingresa la duración"),
+  duracionHoras: z.coerce.number().min(1),
+  precio: z.coerce.number().min(1),
+  precioPorPersona: z.coerce.number().min(1),
+  cupoMaximo: z.coerce.number().min(1),
+  tags: z.string(),
+  puntosInteres: z.string(),
+  imagenUrl: z.string().optional(),
+});
+
+type RutaFormData = z.infer<typeof rutaSchema>;
+
+interface RutaFormProps {
+  onSuccess?: () => void;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export default function RutaForm({ onSuccess, isOpen, onOpenChange }: RutaFormProps) {
+  const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<RutaFormData>({
+    resolver: zodResolver(rutaSchema),
+    defaultValues: {
+      duracionHoras: 1,
+      cupoMaximo: 20,
+      dificultad: "Fácil",
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "La imagen no debe superar 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const onSubmit = async (data: RutaFormData) => {
+    try {
+      setIsLoading(true);
+
+      const formData = new FormData();
+      
+      // Preparar objeto de datos
+      const rutaData = {
+        ...data,
+        tags: data.tags.split(",").map(t => t.trim()),
+        puntosInteres: data.puntosInteres.split(",").map(p => p.trim()),
+        imagenUrl: !selectedFile ? (data.imagenUrl || "") : undefined,
+      };
+
+      formData.append("data", JSON.stringify(rutaData));
+      if (selectedFile) {
+        formData.append("imagen", selectedFile);
+      }
+
+      const token = localStorage.getItem("auth_token");
+      const response = await fetch("/api/rutas", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al crear ruta");
+      }
+
+      toast({
+        title: "Éxito",
+        description: "Ruta creada correctamente",
+      });
+
+      reset();
+      setPreview(null);
+      setSelectedFile(null);
+      onSuccess?.();
+      onOpenChange?.(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button>Crear Nueva Ruta</Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Crear Nueva Ruta</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Información Básica */}
+          <div className="space-y-4">
+            <h3 className="font-semibold">Información Básica</h3>
+            
+            <div>
+              <Label>Nombre de la Ruta</Label>
+              <Input
+                {...register("nombre")}
+                placeholder="ej: Valle del Cocora"
+              />
+              {errors.nombre && (
+                <p className="text-sm text-red-500 mt-1">{errors.nombre.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label>Descripción</Label>
+              <Textarea
+                {...register("descripcion")}
+                placeholder="Describe la ruta en detalle..."
+                rows={4}
+              />
+              {errors.descripcion && (
+                <p className="text-sm text-red-500 mt-1">{errors.descripcion.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Destino</Label>
+                <Input
+                  {...register("destino")}
+                  placeholder="ej: Salento"
+                />
+                {errors.destino && (
+                  <p className="text-sm text-red-500 mt-1">{errors.destino.message}</p>
+                )}
+              </div>
+
+              <div>
+                <Label>Dificultad</Label>
+                <Controller
+                  name="dificultad"
+                  control={control}
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Fácil">Fácil</SelectItem>
+                        <SelectItem value="Moderado">Moderado</SelectItem>
+                        <SelectItem value="Avanzado">Avanzado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Duración y Precio */}
+          <div className="space-y-4">
+            <h3 className="font-semibold">Duración y Precio</h3>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Duración (texto)</Label>
+                <Input
+                  {...register("duracion")}
+                  placeholder="ej: 6-8 horas"
+                />
+              </div>
+
+              <div>
+                <Label>Duración (horas)</Label>
+                <Input
+                  type="number"
+                  {...register("duracionHoras")}
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Precio Total</Label>
+                <Input
+                  type="number"
+                  {...register("precio")}
+                  placeholder="0"
+                  min="1"
+                />
+              </div>
+
+              <div>
+                <Label>Precio por Persona</Label>
+                <Input
+                  type="number"
+                  {...register("precioPorPersona")}
+                  placeholder="0"
+                  min="1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>Cupo Máximo</Label>
+              <Input
+                type="number"
+                {...register("cupoMaximo")}
+                min="1"
+                defaultValue="20"
+              />
+            </div>
+          </div>
+
+          {/* Puntos de Interés */}
+          <div className="space-y-4">
+            <h3 className="font-semibold">Detalles Adicionales</h3>
+
+            <div>
+              <Label>Tags (separados por coma)</Label>
+              <Input
+                {...register("tags")}
+                placeholder="naturaleza, senderismo, fotografía"
+              />
+            </div>
+
+            <div>
+              <Label>Puntos de Interés (separados por coma)</Label>
+              <Input
+                {...register("puntosInteres")}
+                placeholder="Palmas de cera, Bosque de niebla, Casa de colibríes"
+              />
+            </div>
+          </div>
+
+          {/* Upload de Imagen */}
+          <div className="space-y-4">
+            <h3 className="font-semibold">Imagen de la Ruta</h3>
+
+            <Card className="border-2 border-dashed p-6">
+              <div className="space-y-4">
+                {preview && (
+                  <div className="relative">
+                    <img
+                      src={preview}
+                      alt="Preview"
+                      className="w-full h-48 object-cover rounded"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPreview(null);
+                        setSelectedFile(null);
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-center">
+                  <label className="w-full cursor-pointer">
+                    <div className="flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded hover:bg-gray-50">
+                      <Upload size={20} />
+                      <span>Clic para subir imagen</span>
+                    </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                <p className="text-sm text-gray-500 text-center">
+                  Formatos: JPG, PNG, WebP, GIF | Máximo: 5MB
+                </p>
+              </div>
+            </Card>
+
+            {!selectedFile && (
+              <div>
+                <Label>O ingresa URL de imagen</Label>
+                <Input
+                  {...register("imagenUrl")}
+                  type="url"
+                  placeholder="https://ejemplo.com/imagen.jpg"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Botones */}
+          <div className="flex gap-2 justify-end pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                onOpenChange?.(false);
+                reset();
+              }}
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Creando..." : "Crear Ruta"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
