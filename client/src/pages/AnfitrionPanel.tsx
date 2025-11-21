@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, DollarSign, Plus, Trash2 } from "lucide-react";
+import { MapPin, Users, DollarSign, Plus, Trash2, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -27,17 +27,21 @@ import { useToast } from "@/hooks/use-toast";
 interface Ruta {
   id: string;
   nombre: string;
+  descripcion: string;
   destino: string;
   precio: number;
   precioPorPersona: number;
   dificultad: string;
   duracion: string;
   duracionHoras: number;
+  cupoMaximo: number;
   resenas: number;
   rating: string;
   disponible: boolean;
   imagenUrl: string;
   anfitrionId: string;
+  tags?: string[];
+  puntosInteres?: string[];
 }
 
 interface Reserva {
@@ -62,6 +66,7 @@ export default function AnfitrionPanel() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRuta, setEditingRuta] = useState<Ruta | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { 
@@ -152,6 +157,16 @@ export default function AnfitrionPanel() {
     }
   };
 
+  const handleEditRuta = (ruta: Ruta) => {
+    setEditingRuta(ruta);
+    setIsFormOpen(true);
+  };
+
+  const handleCloseForm = () => {
+    setIsFormOpen(false);
+    setEditingRuta(null);
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -220,11 +235,12 @@ export default function AnfitrionPanel() {
             <TabsContent value="rutas" className="space-y-4">
               <div className="flex justify-end mb-4">
                 <RutaForm 
+                  rutaToEdit={editingRuta}
                   isOpen={isFormOpen}
-                  onOpenChange={setIsFormOpen}
+                  onOpenChange={handleCloseForm}
                   onSuccess={() => {
                     refetchRutas();
-                    setIsFormOpen(false);
+                    handleCloseForm();
                   }}
                 />
               </div>
@@ -244,11 +260,12 @@ export default function AnfitrionPanel() {
                     <div className="text-center py-8">
                       <p className="text-muted-foreground mb-4">No tienes rutas aún</p>
                       <RutaForm 
+                        rutaToEdit={null}
                         isOpen={isFormOpen}
-                        onOpenChange={setIsFormOpen}
+                        onOpenChange={handleCloseForm}
                         onSuccess={() => {
                           refetchRutas();
-                          setIsFormOpen(false);
+                          handleCloseForm();
                         }}
                       />
                     </div>
@@ -272,15 +289,25 @@ export default function AnfitrionPanel() {
                                 <h3 className="font-semibold text-lg">{ruta.nombre}</h3>
                                 <p className="text-sm text-muted-foreground">{ruta.destino}</p>
                               </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteRuta(ruta.id)}
-                                disabled={deletingId === ruta.id}
-                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEditRuta(ruta)}
+                                  className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteRuta(ruta.id)}
+                                  disabled={deletingId === ruta.id}
+                                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                             <div className="flex gap-4 text-sm">
                               <div>

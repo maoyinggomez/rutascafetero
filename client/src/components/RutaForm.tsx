@@ -41,21 +41,53 @@ const rutaSchema = z.object({
 
 type RutaFormData = z.infer<typeof rutaSchema>;
 
+interface Ruta {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  destino: string;
+  dificultad: string;
+  duracion: string;
+  duracionHoras: number;
+  precio: number;
+  precioPorPersona: number;
+  cupoMaximo: number;
+  tags?: string[];
+  puntosInteres?: string[];
+  imagenUrl?: string;
+}
+
 interface RutaFormProps {
   onSuccess?: () => void;
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  rutaToEdit?: Ruta | null;
 }
 
-export default function RutaForm({ onSuccess, isOpen, onOpenChange }: RutaFormProps) {
-  const [preview, setPreview] = useState<string | null>(null);
+export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }: RutaFormProps) {
+  const [preview, setPreview] = useState<string | null>(rutaToEdit?.imagenUrl || null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  const isEditing = !!rutaToEdit;
+
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<RutaFormData>({
     resolver: zodResolver(rutaSchema),
-    defaultValues: {
+    defaultValues: rutaToEdit ? {
+      nombre: rutaToEdit.nombre,
+      descripcion: rutaToEdit.descripcion,
+      destino: rutaToEdit.destino,
+      dificultad: rutaToEdit.dificultad as "Fácil" | "Moderado" | "Avanzado",
+      duracion: rutaToEdit.duracion,
+      duracionHoras: rutaToEdit.duracionHoras,
+      precio: rutaToEdit.precio,
+      precioPorPersona: rutaToEdit.precioPorPersona,
+      cupoMaximo: rutaToEdit.cupoMaximo,
+      tags: rutaToEdit.tags?.join(", ") || "",
+      puntosInteres: rutaToEdit.puntosInteres?.join(", ") || "",
+      imagenUrl: rutaToEdit.imagenUrl || "",
+    } : {
       duracionHoras: 1,
       cupoMaximo: 20,
       dificultad: "Fácil",
@@ -103,8 +135,11 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange }: RutaFormPr
       }
 
       const token = localStorage.getItem("auth_token");
-      const response = await fetch("/api/rutas", {
-        method: "POST",
+      const method = isEditing ? "PATCH" : "POST";
+      const url = isEditing ? `/api/rutas/${rutaToEdit.id}` : "/api/rutas";
+
+      const response = await fetch(url, {
+        method,
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -113,12 +148,12 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange }: RutaFormPr
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Error al crear ruta");
+        throw new Error(error.error || (isEditing ? "Error al actualizar ruta" : "Error al crear ruta"));
       }
 
       toast({
         title: "Éxito",
-        description: "Ruta creada correctamente",
+        description: isEditing ? "Ruta actualizada correctamente" : "Ruta creada correctamente",
       });
 
       reset();
@@ -139,12 +174,14 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange }: RutaFormPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button>Crear Nueva Ruta</Button>
-      </DialogTrigger>
+      {!rutaToEdit && (
+        <DialogTrigger asChild>
+          <Button>Crear Nueva Ruta</Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Crear Nueva Ruta</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Ruta" : "Crear Nueva Ruta"}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -353,13 +390,15 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange }: RutaFormPr
               onClick={() => {
                 onOpenChange?.(false);
                 reset();
+                setPreview(null);
+                setSelectedFile(null);
               }}
               disabled={isLoading}
             >
               Cancelar
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Creando..." : "Crear Ruta"}
+              {isLoading ? (isEditing ? "Actualizando..." : "Creando...") : (isEditing ? "Actualizar Ruta" : "Crear Ruta")}
             </Button>
           </div>
         </form>
