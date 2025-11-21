@@ -15,13 +15,14 @@ import {
 export default function Navbar() {
   const [location] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isAnfitrion, logout } = useAuth();
 
   const navLinks = [
     { href: "/", label: "Inicio" },
     { href: "/rutas", label: "Rutas" },
     ...(isAuthenticated ? [{ href: "/reservas", label: "Mis Reservas" }] : []),
     ...(isAdmin ? [{ href: "/admin", label: "Admin" }] : []),
+    ...(isAnfitrion ? [{ href: "/anfitrion", label: "Mi Panel" }] : []),
   ];
 
   const isActive = (path: string) => location === path;
@@ -73,6 +74,13 @@ export default function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/admin">
                         <a className="w-full cursor-pointer">Panel Admin</a>
+                      </Link>
+                    </DropdownMenuItem>
+                  )}
+                  {isAnfitrion && (
+                    <DropdownMenuItem asChild>
+                      <Link href="/anfitrion">
+                        <a className="w-full cursor-pointer">Mi Panel</a>
                       </Link>
                     </DropdownMenuItem>
                   )}
