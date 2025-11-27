@@ -51,7 +51,6 @@ export default function RutaDetalle() {
   const reservaMutation = useMutation({
       mutationFn: async (data: {
         rutaId: string;
-        userId: string;
         fechaRuta: string;
         cantidadPersonas: number;
         totalPagado: number;
@@ -101,12 +100,9 @@ const handleReservar = (e: React.FormEvent) => {
 
   const precioUnitario = ruta.precioPorPersona || ruta.precio;
 
-  // 👇 Este es el cambio importante
   reservaMutation.mutate({
     rutaId: ruta.id,
-    userId: user?.id ?? "", // ✅ ahora se envía el usuario logueado
     fechaRuta: fechaRuta,
- // ✅ formato string ISO correcto
     cantidadPersonas: Number(cantidadPersonas),
     totalPagado: precioUnitario * cantidadPersonas,
   });

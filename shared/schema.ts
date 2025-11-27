@@ -67,6 +67,7 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
 
 export const insertReservaSchema = createInsertSchema(reservas).omit({
   id: true,
+  userId: true,
   estado: true,
   createdAt: true,
 }).extend({
