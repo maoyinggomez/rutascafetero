@@ -64,33 +64,61 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  try {
+    console.log("🚀 Iniciando servidor...");
+    const server = await registerRoutes(app);
+    console.log("✅ Routes registradas");
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
+    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
 
-    res.status(status).json({ message });
-    throw err;
-  });
+      res.status(status).json({ message });
+      throw err;
+    });
+    console.log("✅ Error handler registrado");
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
+    // importantly only setup vite in development and after
+    // setting up all the other routes so the catch-all route
+    // doesn't interfere with the other routes
+    if (app.get("env") === "development") {
+      console.log("🔧 Configurando Vite...");
+      await setupVite(app, server);
+      console.log("✅ Vite configurado");
+    } else {
+      console.log("📁 Sirviendo archivos estáticos...");
+      serveStatic(app);
+      console.log("✅ Archivos estáticos configurados");
+    }
+
+    // ALWAYS serve the app on the port specified in the environment variable PORT
+    // Other ports are firewalled. Default to 5000 if not specified.
+    // this serves both the API and the client.
+    // It is the only port that is not firewalled.
+    const port = parseInt(process.env.PORT || '5000', 10);
+    let host = process.env.HOST || "localhost";
+    
+    // Si HOST es 0.0.0.0, usamos undefined para escuchar en todas las interfaces
+    // Si HOST es 127.0.0.1, lo mantenemos. Si es localhost, lo mantenemos.
+    if (host === "0.0.0.0") {
+      host = undefined as any;
+    }
+
+    console.log(`🔌 Intentando escuchar en ${host || "todas las interfaces"}:${port}...`);
+    const httpServer = host ? server.listen(port, host) : server.listen(port);
+
+    httpServer.on('listening', () => {
+      log(`✅ Servidor corriendo en http://${host}:${port}`);
+    });
+
+    // Agregar handler para errores de listen
+    httpServer.on('error', (error: any) => {
+      console.error("❌ Error en servidor:", error);
+      process.exit(1);
+    });
+
+  } catch (error) {
+    console.error("❌ Error al iniciar servidor:", error);
+    process.exit(1);
   }
-
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
-  const host = process.env.HOST || "127.0.0.1"; // 👈 Agregamos esto
-
- server.listen(port, host, () => {
-  log(`✅ Servidor corriendo en http://${host}:${port}`);
-});
 })();
