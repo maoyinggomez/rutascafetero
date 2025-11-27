@@ -7,6 +7,7 @@ import {
   type InsertRuta,
   type Reserva,
   type InsertReserva,
+  type InsertReservaDB,
   users,
   rutas,
   reservas,
@@ -36,7 +37,7 @@ export interface IStorage {
   getReservasByUser(userId: string): Promise<Reserva[]>;
   getAllReservas(): Promise<Reserva[]>;
   getReservasPorRuta(rutaId: string, user: JWTPayload): Promise<Reserva[]>;
-  createReserva(reserva: InsertReserva): Promise<Reserva>;
+  createReserva(reserva: InsertReservaDB): Promise<Reserva>;
   updateReservaEstado(
     id: string,
     estado: "pendiente" | "confirmada" | "cancelada"
@@ -146,7 +147,7 @@ export class PostgresStorage implements IStorage {
     return db.select().from(reservas);
   }
 
-  async createReserva(reserva: InsertReserva): Promise<Reserva> {
+  async createReserva(reserva: InsertReservaDB): Promise<Reserva> {
     const result = await db.insert(reservas).values(reserva).returning();
     return result[0];
   }

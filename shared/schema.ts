@@ -95,3 +95,6 @@ export type Ruta = typeof rutas.$inferSelect;
 export type InsertRuta = z.infer<typeof insertRutaSchema>;
 export type Reserva = typeof reservas.$inferSelect;
 export type InsertReserva = z.infer<typeof insertReservaSchema>;
+
+// Tipo extendido para insertar en la BD (incluye userId que viene del servidor)
+export type InsertReservaDB = InsertReserva & { userId: string };
