@@ -29,10 +29,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { data: user, isLoading, refetch } = useQuery<User>({
     queryKey: ["/api", "auth", "me"],
     queryFn: async () => {
-      return apiRequest("GET", "/api/auth/me");
+      const response = await apiRequest("GET", "/api/auth/me");
+      return response;
     },
     enabled: !!token,
-    retry: false,
+    retry: (failureCount, error: any) => {
+      // No reintentar si es 401 (unauthorized)
+      if (error?.status === 401) {
+        localStorage.removeItem("auth_token");
+        setToken(null);
+        return false;
+      }
+      // Reintentar máximo 2 veces para otros errores
+      return failureCount < 2;
+    },
     staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
@@ -53,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       localStorage.setItem("auth_token", data.token);
       queryClient.setQueryData(["/api", "auth", "me"], data.user);
+      // Forzar refetch después de login para asegurarse que el usuario se actualiza
+      refetch();
     },
   });
 
@@ -79,6 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(data.token);
       localStorage.setItem("auth_token", data.token);
       queryClient.setQueryData(["/api", "auth", "me"], data.user);
+      // Forzar refetch después de registro para asegurarse que el usuario se actualiza
+      refetch();
     },
   });
 
@@ -96,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await registerMutation.mutateAsync({ nombre, email, password, rol });
   };
 
+  // Sincronizar token con localStorage
   useEffect(() => {
     if (token) {
       localStorage.setItem("auth_token", token);
@@ -103,6 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("auth_token");
     }
   }, [token]);
+
+  // Refetch cuando el token cambia
+  useEffect(() => {
+    if (token) {
+      refetch();
+    }
+  }, [token, refetch]);
 
   return (
     <AuthContext.Provider
