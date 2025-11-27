@@ -249,28 +249,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/reservas", authenticate, async (req, res) => {
     try {
-      console.log("📝 Creando reserva con datos:", req.body);
+      console.log("📝 Creando reserva:");
+      console.log("   Usuario:", req.user);
+      console.log("   Rol del usuario:", req.user?.rol);
+      console.log("   Datos recibidos:", req.body);
+      
       const validatedData = insertReservaSchema.parse(req.body);
       console.log("✅ Validación exitosa:", validatedData);
       
       const ruta = await storage.getRuta(validatedData.rutaId);
       if (!ruta) {
+        console.log("❌ Ruta no encontrada:", validatedData.rutaId);
         return res.status(404).json({ error: "Ruta no encontrada" });
       }
 
       if (!req.user?.userId) {
+        console.log("❌ Usuario no autenticado");
         return res.status(401).json({ error: "Usuario no autenticado" });
       }
 
+      console.log("✅ Creando reserva para usuario:", req.user.userId, "en ruta:", validatedData.rutaId);
       const reserva = await storage.createReserva({
         ...validatedData,
         userId: req.user.userId,
       });
 
+      console.log("✅ Reserva creada exitosamente:", reserva.id);
       res.status(201).json(reserva);
     } catch (error: any) {
       console.error("❌ Error al crear reserva:", error.message);
-      console.error("Stack:", error.stack);
+      console.error("   Stack:", error.stack);
+      console.error("   Code:", error.code);
       res.status(400).json({ error: error.message || "Error al crear reserva" });
     }
   });
