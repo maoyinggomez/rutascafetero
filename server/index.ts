@@ -96,23 +96,26 @@ app.use((req, res, next) => {
     // this serves both the API and the client.
     // It is the only port that is not firewalled.
     const port = parseInt(process.env.PORT || '5000', 10);
-    let host = process.env.HOST || "localhost";
+    const hostEnv = process.env.HOST || "localhost";
     
     // Si HOST es 0.0.0.0, usamos undefined para escuchar en todas las interfaces
-    // Si HOST es 127.0.0.1, lo mantenemos. Si es localhost, lo mantenemos.
-    if (host === "0.0.0.0") {
-      host = undefined as any;
+    let listenHost: string | undefined = hostEnv === "0.0.0.0" ? undefined : hostEnv;
+    let displayHost = listenHost || "todas las interfaces";
+
+    console.log(`🔌 Intentando escuchar en ${displayHost}:${port}...`);
+    
+    if (listenHost) {
+      server.listen(port, listenHost);
+    } else {
+      server.listen(port);
     }
 
-    console.log(`🔌 Intentando escuchar en ${host || "todas las interfaces"}:${port}...`);
-    const httpServer = host ? server.listen(port, host) : server.listen(port);
-
-    httpServer.on('listening', () => {
-      log(`✅ Servidor corriendo en http://${host}:${port}`);
+    server.on('listening', () => {
+      log(`✅ Servidor corriendo en http://${displayHost}:${port}`);
     });
 
     // Agregar handler para errores de listen
-    httpServer.on('error', (error: any) => {
+    server.on('error', (error: any) => {
       console.error("❌ Error en servidor:", error);
       process.exit(1);
     });
