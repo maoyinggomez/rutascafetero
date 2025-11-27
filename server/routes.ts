@@ -249,7 +249,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/reservas", authenticate, async (req, res) => {
     try {
+      console.log("📝 Creando reserva con datos:", req.body);
       const validatedData = insertReservaSchema.parse(req.body);
+      console.log("✅ Validación exitosa:", validatedData);
       
       const ruta = await storage.getRuta(validatedData.rutaId);
       if (!ruta) {
@@ -267,7 +269,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(reserva);
     } catch (error: any) {
-      console.error("Error al crear reserva:", error);
+      console.error("❌ Error al crear reserva:", error.message);
+      console.error("Stack:", error.stack);
       res.status(400).json({ error: error.message || "Error al crear reserva" });
     }
   });
