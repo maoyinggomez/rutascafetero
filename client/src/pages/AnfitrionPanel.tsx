@@ -169,6 +169,14 @@ export default function AnfitrionPanel() {
     setEditingRuta(null);
   };
 
+  const handleOpenChangeForm = (open: boolean) => {
+    if (!open) {
+      handleCloseForm();
+    } else {
+      setIsFormOpen(true);
+    }
+  };
+
   const handleActualizarReserva = async (reservaId: string, nuevoEstado: "confirmada" | "cancelada") => {
     try {
       const token = localStorage.getItem("auth_token");
@@ -290,7 +298,7 @@ export default function AnfitrionPanel() {
                 <RutaForm 
                   rutaToEdit={editingRuta}
                   isOpen={isFormOpen}
-                  onOpenChange={handleCloseForm}
+                  onOpenChange={handleOpenChangeForm}
                   onSuccess={() => {
                     refetchRutas();
                     handleCloseForm();
@@ -315,7 +323,7 @@ export default function AnfitrionPanel() {
                       <RutaForm 
                         rutaToEdit={null}
                         isOpen={isFormOpen}
-                        onOpenChange={handleCloseForm}
+                        onOpenChange={handleOpenChangeForm}
                         onSuccess={() => {
                           refetchRutas();
                           handleCloseForm();

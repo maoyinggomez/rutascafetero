@@ -64,11 +64,23 @@ interface RutaFormProps {
   rutaToEdit?: Ruta | null;
 }
 
-export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }: RutaFormProps) {
+export default function RutaForm({ onSuccess, isOpen: isOpenProp, onOpenChange, rutaToEdit }: RutaFormProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [preview, setPreview] = useState<string | null>(rutaToEdit?.imagenUrl || null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  // Si se pasa isOpen, usamos ese; si no, usamos el estado interno
+  const isOpen = isOpenProp !== undefined ? isOpenProp : internalOpen;
+  
+  const handleOpenChange = (open: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(open);
+    } else {
+      setInternalOpen(open);
+    }
+  };
 
   const isEditing = !!rutaToEdit;
 
@@ -124,9 +136,9 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       // Preparar objeto de datos
       const rutaData = {
         ...data,
-        tags: data.tags.split(",").map(t => t.trim()),
-        puntosInteres: data.puntosInteres.split(",").map(p => p.trim()),
-        imagenUrl: !selectedFile ? (data.imagenUrl || "") : undefined,
+        tags: data.tags.split(",").map(t => t.trim()).filter(t => t),
+        puntosInteres: data.puntosInteres.split(",").map(p => p.trim()).filter(p => p),
+        imagenUrl: !selectedFile ? (data.imagenUrl || undefined) : undefined,
       };
 
       formData.append("data", JSON.stringify(rutaData));
@@ -147,8 +159,14 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || (isEditing ? "Error al actualizar ruta" : "Error al crear ruta"));
+        let errorMessage = isEditing ? "Error al actualizar ruta" : "Error al crear ruta";
+        try {
+          const error = await response.json();
+          errorMessage = error.error || errorMessage;
+        } catch (e) {
+          errorMessage = `${response.status} ${response.statusText}: ${errorMessage}`;
+        }
+        throw new Error(errorMessage);
       }
 
       toast({
@@ -160,7 +178,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       setPreview(null);
       setSelectedFile(null);
       onSuccess?.();
-      onOpenChange?.(false);
+      handleOpenChange(false);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -173,8 +191,8 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      {!rutaToEdit && (
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      {!rutaToEdit && !isOpenProp && (
         <DialogTrigger asChild>
           <Button>Crear Nueva Ruta</Button>
         </DialogTrigger>
@@ -388,7 +406,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
               type="button"
               variant="outline"
               onClick={() => {
-                onOpenChange?.(false);
+                handleOpenChange(false);
                 reset();
                 setPreview(null);
                 setSelectedFile(null);

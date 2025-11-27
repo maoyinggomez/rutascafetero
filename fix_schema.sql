@@ -6,6 +6,9 @@ ALTER TABLE rutas ADD COLUMN IF NOT EXISTS tags text[];
 ALTER TABLE rutas ADD COLUMN IF NOT EXISTS puntos_interes text[];
 ALTER TABLE rutas ADD COLUMN IF NOT EXISTS disponible boolean DEFAULT true;
 
+-- Hacer imagen_url nullable
+ALTER TABLE rutas ALTER COLUMN imagen_url DROP NOT NULL;
+
 -- Agregar columnas faltantes a la tabla reservas
 ALTER TABLE reservas ADD COLUMN IF NOT EXISTS fecha_ruta timestamp NOT NULL DEFAULT NOW();
 ALTER TABLE reservas ADD COLUMN IF NOT EXISTS cantidad_personas integer DEFAULT 1;
