@@ -123,33 +123,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
-    upload.single("imagen"),
     async (req, res) => {
       try {
-        // Validar datos básicos
-        const data = JSON.parse(req.body.data || "{}");
-        const validatedData = insertRutaSchema.parse(data);
-
-        // Si hay archivo subido, usar la ruta relativa; sino usar la URL proporcionada
-        const imagenUrl = req.file 
-          ? `/uploads/${req.file.filename}`
-          : validatedData.imagenUrl;
+        const validatedData = insertRutaSchema.parse(req.body);
 
         const ruta = await storage.createRuta({
           ...validatedData,
-          imagenUrl,
           anfitrionId: req.user!.userId, // El anfitrión es quien sube
         });
 
         res.status(201).json(ruta);
       } catch (error: any) {
-        // Limpiar archivo si hay error
-        if (req.file) {
-          const fs = await import("fs").then(m => m.promises);
-          try {
-            await fs.unlink(req.file.path);
-          } catch {}
-        }
         res.status(400).json({ error: error.message || "Error al crear ruta" });
       }
     }
@@ -159,62 +143,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas/:id",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
-    upload.single("imagen"),
     async (req, res) => {
       try {
         // Obtener ruta actual
         const rutaActual = await storage.getRuta(req.params.id);
         if (!rutaActual) {
-          if (req.file) {
-            const fs = await import("fs").then(m => m.promises);
-            try {
-              await fs.unlink(req.file.path);
-            } catch {}
-          }
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
 
         // Verificar permisos - anfitrión solo puede actualizar sus propias rutas
         if (req.user!.rol === "anfitrion" && rutaActual.anfitrionId !== req.user!.userId) {
-          if (req.file) {
-            const fs = await import("fs").then(m => m.promises);
-            try {
-              await fs.unlink(req.file.path);
-            } catch {}
-          }
           return res.status(403).json({ error: "No tienes permisos para actualizar esta ruta" });
         }
 
-        // Preparar datos para actualizar
-        const data = req.body.data ? JSON.parse(req.body.data) : req.body;
-        
-        // Si hay nueva imagen, usar la nueva; sino mantener la anterior
-        if (req.file) {
-          data.imagenUrl = `/uploads/${req.file.filename}`;
-          
-          // Eliminar imagen anterior si existe y es local
-          if (rutaActual.imagenUrl && rutaActual.imagenUrl.startsWith("/uploads/")) {
-            const fs = await import("fs").then(m => m.promises);
-            const oldImagePath = `client/public${rutaActual.imagenUrl}`;
-            try {
-              await fs.unlink(oldImagePath);
-            } catch {}
-          }
-        }
+        // Validar datos
+        const validatedData = insertRutaSchema.partial().parse(req.body);
 
-        const ruta = await storage.updateRuta(req.params.id, data);
+        const ruta = await storage.updateRuta(req.params.id, validatedData);
         if (!ruta) {
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
         res.json(ruta);
       } catch (error: any) {
-        // Limpiar archivo si hay error
-        if (req.file) {
-          const fs = await import("fs").then(m => m.promises);
-          try {
-            await fs.unlink(req.file.path);
-          } catch {}
-        }
         res.status(400).json({ error: error.message || "Error al actualizar ruta" });
       }
     }

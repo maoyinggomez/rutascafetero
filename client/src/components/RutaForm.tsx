@@ -131,20 +131,27 @@ export default function RutaForm({ onSuccess, isOpen: isOpenProp, onOpenChange, 
     try {
       setIsLoading(true);
 
-      const formData = new FormData();
-      
       // Preparar objeto de datos
+      let imagenUrl: string | undefined = undefined;
+      
+      if (selectedFile) {
+        // Convertir archivo a base64
+        imagenUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+      } else {
+        imagenUrl = data.imagenUrl || undefined;
+      }
+
       const rutaData = {
         ...data,
         tags: data.tags.split(",").map(t => t.trim()).filter(t => t),
         puntosInteres: data.puntosInteres.split(",").map(p => p.trim()).filter(p => p),
-        imagenUrl: !selectedFile ? (data.imagenUrl || undefined) : undefined,
+        imagenUrl,
       };
-
-      formData.append("data", JSON.stringify(rutaData));
-      if (selectedFile) {
-        formData.append("imagen", selectedFile);
-      }
 
       const token = localStorage.getItem("auth_token");
       const method = isEditing ? "PATCH" : "POST";
@@ -153,9 +160,10 @@ export default function RutaForm({ onSuccess, isOpen: isOpenProp, onOpenChange, 
       const response = await fetch(url, {
         method,
         headers: {
-          Authorization: `Bearer ${token}`,
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: formData,
+        body: JSON.stringify(rutaData),
       });
 
       if (!response.ok) {
