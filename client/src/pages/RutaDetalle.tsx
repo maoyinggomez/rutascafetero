@@ -101,12 +101,20 @@ const handleReservar = (e: React.FormEvent) => {
 
   const precioUnitario = ruta.precioPorPersona || ruta.precio;
 
-  reservaMutation.mutate({
+  const reservaData = {
     rutaId: ruta.id,
     fechaRuta: fechaRuta,
     cantidadPersonas: Number(cantidadPersonas),
     totalPagado: precioUnitario * cantidadPersonas,
-  });
+  };
+
+  console.log("🎯 Datos de reserva antes de enviar:");
+  console.log("   rutaId:", reservaData.rutaId, "tipo:", typeof reservaData.rutaId);
+  console.log("   fechaRuta:", reservaData.fechaRuta, "tipo:", typeof reservaData.fechaRuta);
+  console.log("   cantidadPersonas:", reservaData.cantidadPersonas, "tipo:", typeof reservaData.cantidadPersonas, "es entero:", Number.isInteger(reservaData.cantidadPersonas));
+  console.log("   totalPagado:", reservaData.totalPagado, "tipo:", typeof reservaData.totalPagado);
+  
+  reservaMutation.mutate(reservaData);
 };
 
   if (isLoading) {
