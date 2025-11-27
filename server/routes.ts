@@ -256,13 +256,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Ruta no encontrada" });
       }
 
+      if (!req.user?.userId) {
+        return res.status(401).json({ error: "Usuario no autenticado" });
+      }
+
       const reserva = await storage.createReserva({
         ...validatedData,
-        userId: req.user!.userId,
+        userId: req.user.userId,
       });
 
       res.status(201).json(reserva);
     } catch (error: any) {
+      console.error("Error al crear reserva:", error);
       res.status(400).json({ error: error.message || "Error al crear reserva" });
     }
   });
