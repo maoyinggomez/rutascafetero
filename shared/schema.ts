@@ -65,18 +65,28 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
   anfitrionId: z.string().optional(),
 });
 
-export const insertReservaSchema = createInsertSchema(reservas).omit({
-  id: true,
-  userId: true,
-  estado: true,
-  createdAt: true,
-}).extend({
+// Schema para crear reserva - acepta string o Date para fechaRuta y lo transforma a Date
+export const insertReservaSchema = z.object({
   rutaId: z.string().min(1, "rutaId es requerido"),
-  cantidadPersonas: z.number().int().positive("Cantidad de personas debe ser un número positivo"),
-  totalPagado: z.number().positive("Total pagado debe ser un número positivo").transform(v => Math.round(v)),
-  fechaRuta: z.union([z.string(), z.date()]).transform(val => 
-    typeof val === 'string' ? new Date(val) : val
-  ),
+  fechaRuta: z.union([z.string(), z.date()])
+    .refine(val => {
+      // Validar que sea una fecha válida
+      const date = typeof val === 'string' ? new Date(val) : val;
+      return !isNaN(date.getTime());
+    }, "Fecha inválida")
+    .transform(val => {
+      // Convertir string a Date si es necesario
+      if (typeof val === 'string') {
+        return new Date(val);
+      }
+      return val;
+    }),
+  cantidadPersonas: z.number()
+    .int("Cantidad de personas debe ser un número entero")
+    .positive("Cantidad de personas debe ser mayor a 0"),
+  totalPagado: z.number()
+    .positive("Total pagado debe ser un número positivo")
+    .transform(v => Math.round(v)),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
