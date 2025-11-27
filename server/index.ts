@@ -98,20 +98,15 @@ app.use((req, res, next) => {
     const port = parseInt(process.env.PORT || '5000', 10);
     const hostEnv = process.env.HOST || "localhost";
     
-    // Si HOST es 0.0.0.0, usamos undefined para escuchar en todas las interfaces
-    let listenHost: string | undefined = hostEnv === "0.0.0.0" ? undefined : hostEnv;
-    let displayHost = listenHost || "todas las interfaces";
+    // En Windows, es más seguro usar "localhost" en lugar de 0.0.0.0
+    // localhost escucha en ambas 127.0.0.1 y ::1 (IPv6)
+    const listenHost = hostEnv === "0.0.0.0" ? "localhost" : hostEnv;
 
-    console.log(`🔌 Intentando escuchar en ${displayHost}:${port}...`);
-    
-    if (listenHost) {
-      server.listen(port, listenHost);
-    } else {
-      server.listen(port);
-    }
+    console.log(`🔌 Intentando escuchar en ${listenHost}:${port}...`);
+    server.listen(port, listenHost);
 
     server.on('listening', () => {
-      log(`✅ Servidor corriendo en http://${displayHost}:${port}`);
+      log(`✅ Servidor corriendo en http://${listenHost}:${port}`);
     });
 
     // Agregar handler para errores de listen
