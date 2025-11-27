@@ -73,7 +73,7 @@ export const insertReservaSchema = createInsertSchema(reservas).omit({
 }).extend({
   rutaId: z.string().min(1, "rutaId es requerido"),
   cantidadPersonas: z.number().int().positive("Cantidad de personas debe ser un número positivo"),
-  totalPagado: z.number().positive("Total pagado debe ser un número positivo"),
+  totalPagado: z.number().positive("Total pagado debe ser un número positivo").transform(v => Math.round(v)),
   fechaRuta: z.union([z.string(), z.date()]).transform(val => 
     typeof val === 'string' ? new Date(val) : val
   ),
