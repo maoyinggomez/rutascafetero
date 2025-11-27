@@ -26,10 +26,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => getAuthToken());
   const queryClient = useQueryClient();
 
-  const { data: user, isLoading } = useQuery<User>({
+  const { data: user, isLoading, refetch } = useQuery<User>({
     queryKey: ["/api", "auth", "me"],
+    queryFn: async () => {
+      return apiRequest("GET", "/api/auth/me");
+    },
     enabled: !!token,
     retry: false,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
   const loginMutation = useMutation({

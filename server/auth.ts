@@ -2,7 +2,9 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { Request, Response, NextFunction } from "express";
 
-const JWT_SECRET = process.env.JWT_SECRET || "rutas-eje-cafetero-secret-key-2024";
+// IMPORTANTE: Esta secret key DEBE ser igual en todas las máquinas
+// Si no está en .env, usa esta por defecto
+const JWT_SECRET = process.env.JWT_SECRET || "supersecreto123";
 const SALT_ROUNDS = 10;
 
 export interface JWTPayload {

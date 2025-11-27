@@ -6,6 +6,11 @@ export function getAuthToken(): string | null {
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
+    // Si es error 401, limpiar el token
+    if (res.status === 401) {
+      localStorage.removeItem("auth_token");
+    }
+    
     const text = (await res.text()) || res.statusText;
     try {
       const json = JSON.parse(text);

@@ -48,6 +48,61 @@ cd rutascafetero
 npm install
 ```
 
+### 5️⃣ ⚠️ IMPORTANTE: Configurar el .env
+
+Los compañeros DEBEN crear un archivo `.env` en la raíz del proyecto con EXACTAMENTE esto:
+
+```env
+DATABASE_URL=postgresql://neondb_owner:npg_5OqldI4xhHcR@ep-blue-brook-ad2rcsef-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+JWT_SECRET=supersecreto123
+PORT=3000
+HOST=0.0.0.0
+```
+
+**⛔ CRÍTICO:**
+- El `JWT_SECRET` DEBE ser exactamente `supersecreto123` en TODAS las máquinas
+- La `DATABASE_URL` es la misma para todos
+- Si el JWT_SECRET es diferente, recibirán "Credenciales inválidas" al refrescar
+
+### 6️⃣ Arrancar el Servidor
+
+```bash
+npm run dev
+```
+
+---
+
+## ✅ Verificación: ¿Funciona?
+
+1. **Máquina A:** Registra un nuevo usuario desde la IP `192.168.1.100:3000`
+2. **Máquina A:** Refresca la página - debe seguir logueado
+3. **Máquina B:** Accede a `192.168.1.100:3000` con las mismas credenciales - debe funcionar
+4. **Máquina B:** Refresca la página - debe seguir logueado
+
+Si en cualquier punto ves "Credenciales inválidas", verifica que **ambas máquinas tienen el mismo JWT_SECRET en su `.env`**
+
+---
+
+## 🔧 Troubleshooting
+
+### "Credenciales inválidas" después de refrescar
+
+**Causa:** JWT_SECRET diferente en las máquinas
+
+**Solución:** 
+1. Abre `.env` en ambas máquinas
+2. Verifica que `JWT_SECRET=supersecreto123` es exactamente igual
+3. Reinicia el servidor con `npm run dev`
+
+### "No puedo acceder desde otra máquina"
+
+**Causa:** El servidor no está escuchando en 0.0.0.0
+
+**Solución:**
+1. Verifica que `.env` tiene `HOST=0.0.0.0`
+2. Si cambias el .env, reinicia con `npm run dev`
+3. Usa la IP local correcta (ej: `ipconfig` en Windows)
+
 ### 5️⃣ Configurar `.env` en Cada Máquina
 
 Copiar `.env.example` a `.env`:
