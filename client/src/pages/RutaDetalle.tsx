@@ -55,6 +55,7 @@ export default function RutaDetalle() {
         cantidadPersonas: number;
         totalPagado: number;
       }) => {
+        console.log("📤 Enviando reserva:", data);
         return apiRequest("POST", "/api/reservas", data);
       },
       onSuccess: () => {
