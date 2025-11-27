@@ -13,9 +13,10 @@ declare module 'http' {
 app.use(express.json({
   verify: (req, _res, buf) => {
     req.rawBody = buf;
-  }
+  },
+  limit: '50mb',
 }));
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 // Servir archivos estáticos de uploads
 app.use('/uploads', express.static('client/public/uploads'));
