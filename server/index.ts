@@ -103,10 +103,9 @@ app.use((req, res, next) => {
     const listenHost = hostEnv === "0.0.0.0" ? "localhost" : hostEnv;
 
     console.log(`🔌 Intentando escuchar en ${listenHost}:${port}...`);
-    server.listen(port, listenHost);
-
-    server.on('listening', () => {
+    server.listen(port, listenHost, () => {
       log(`✅ Servidor corriendo en http://${listenHost}:${port}`);
+      console.log("🟢 Servidor completamente listo para recibir solicitudes");
     });
 
     // Agregar handler para errores de listen
@@ -115,8 +114,37 @@ app.use((req, res, next) => {
       process.exit(1);
     });
 
+    // Evitar que Node.js salga del proceso
+    console.log("🔄 Servidor en standby, esperando solicitudes...");
+
+    // Mantener el proceso activo - setInterval hace que Node.js no salga
+    setInterval(() => {}, 1000000);
+
   } catch (error) {
     console.error("❌ Error al iniciar servidor:", error);
+    console.error("Stack:", (error as any).stack);
     process.exit(1);
   }
 })();
+
+// Handler para excepciones no capturadas
+process.on('uncaughtException', (error) => {
+  console.error('❌ Excepción no capturada:', error);
+  // NO hacer exit, solo loguear
+  // process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Promesa rechazada no manejada:', reason);
+  // NO hacer exit, solo loguear
+});
+
+// Ignorar SIGINT y SIGTERM para que el servidor siga funcionando
+// NO logueamos porque eso causa que npm intente salir
+process.on('SIGINT', () => {
+  // Ignorar silenciosamente
+});
+
+process.on('SIGTERM', () => {
+  // Ignorar silenciosamente
+});

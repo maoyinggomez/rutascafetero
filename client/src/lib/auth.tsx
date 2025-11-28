@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
   const { data: user, isLoading, refetch } = useQuery<User>({
-    queryKey: ["/api", "auth", "me"],
+    queryKey: ["/api", "auth", "me", token],
     queryFn: async () => {
       const response = await apiRequest("GET", "/api/auth/me");
       return response;
@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Reintentar máximo 2 veces para otros errores
       return failureCount < 2;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutos
+    staleTime: 30 * 60 * 1000, // 30 minutos
   });
 
   const loginMutation = useMutation({
@@ -60,11 +60,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onSuccess: (data) => {
+      console.log("🔐 LOGIN SUCCESS - Setting token");
       setToken(data.token);
       localStorage.setItem("auth_token", data.token);
-      queryClient.setQueryData(["/api", "auth", "me"], data.user);
-      // Forzar refetch después de login para asegurarse que el usuario se actualiza
-      refetch();
+      queryClient.setQueryData(["/api", "auth", "me", data.token], data.user);
     },
   });
 
@@ -88,11 +87,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     },
     onSuccess: (data) => {
+      console.log("🔐 REGISTER SUCCESS - Setting token");
+      console.log("Data recibida:", { token: data.token?.substring(0, 30), user: data.user.email });
       setToken(data.token);
       localStorage.setItem("auth_token", data.token);
-      queryClient.setQueryData(["/api", "auth", "me"], data.user);
-      // Forzar refetch después de registro para asegurarse que el usuario se actualiza
-      refetch();
+      queryClient.setQueryData(["/api", "auth", "me", data.token], data.user);
+      console.log("Token en localStorage:", localStorage.getItem("auth_token")?.substring(0, 30));
     },
   });
 
@@ -112,10 +112,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Sincronizar token con localStorage
   useEffect(() => {
+    console.log("📝 useEffect token sync - token:", token?.substring(0, 30) || "null");
     if (token) {
       localStorage.setItem("auth_token", token);
+      console.log("✅ Token establecido en localStorage");
     } else {
       localStorage.removeItem("auth_token");
+      console.log("❌ Token removido de localStorage");
     }
   }, [token]);
 
@@ -124,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (token) {
       refetch();
     }
-  }, [token, refetch]);
+  }, [token]);
 
   return (
     <AuthContext.Provider
