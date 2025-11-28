@@ -43,6 +43,7 @@ export default function RutaDetalle() {
   const queryClient = useQueryClient();
   
   const [fechaRuta, setFechaRuta] = useState("");
+  const [horaInicio, setHoraInicio] = useState("08:00");
   const [cantidadPersonas, setCantidadPersonas] = useState(1);
 
   const { data: ruta, isLoading } = useQuery<Ruta>({
@@ -99,18 +100,35 @@ const handleReservar = (e: React.FormEvent) => {
     return;
   }
 
+  if (!horaInicio) {
+    toast({
+      title: "Hora requerida",
+      description: "Por favor selecciona la hora de inicio",
+      variant: "destructive",
+    });
+    return;
+  }
+
   if (!ruta) return;
 
   const precioUnitario = ruta.precioPorPersona || ruta.precio;
 
-  // Convertir la fecha string a objeto Date y luego a ISO string con hora
+  // Convertir la fecha string a objeto Date con la hora seleccionada
   const fechaDate = new Date(fechaRuta);
-  fechaDate.setHours(10, 0, 0, 0); // Establecer hora por defecto (10:00 AM)
+  const [horas, minutos] = horaInicio.split(":").map(Number);
+  fechaDate.setHours(horas, minutos, 0, 0);
+
+  // Calcular hora de fin basada en duracionHoras
+  const horaFinDate = new Date(fechaDate);
+  horaFinDate.setHours(horaFinDate.getHours() + ruta.duracionHoras);
+  const horaFin = horaFinDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 
   reservaMutation.mutate({
     rutaId: ruta.id,
     userId: user?.id ?? "",
-    fechaRuta: fechaDate.toISOString(), // Enviar como ISO string completo
+    fechaRuta: fechaDate.toISOString(),
+    horaInicio,
+    horaFin,
     cantidadPersonas: Number(cantidadPersonas),
     totalPagado: precioUnitario * cantidadPersonas,
   });
@@ -269,7 +287,27 @@ const handleReservar = (e: React.FormEvent) => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="personas">Cantidad de Personas</Label>
+                      <Label htmlFor="horaInicio">Hora de Inicio</Label>
+                      <Input
+                        id="horaInicio"
+                        type="time"
+                        value={horaInicio}
+                        onChange={(e) => setHoraInicio(e.target.value)}
+                        required
+                      />
+                      {ruta && (
+                        <p className="text-xs text-muted-foreground">
+                          Duración: {ruta.duracionHoras}h • Hora de fin aproximada: {
+                            (() => {
+                              const [h, m] = horaInicio.split(":").map(Number);
+                              const finDate = new Date();
+                              finDate.setHours(h + ruta.duracionHoras, m, 0);
+                              return finDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+                            })()
+                          }
+                        </p>
+                      )}
+                    </div>
                       <Input
                         id="personas"
                         type="number"

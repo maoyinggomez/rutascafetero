@@ -41,6 +41,8 @@ export const reservas = pgTable("reservas", {
   userId: varchar("user_id").notNull().references(() => users.id),
   rutaId: varchar("ruta_id").notNull().references(() => rutas.id),
   fechaRuta: timestamp("fecha_ruta").notNull(),
+  horaInicio: text("hora_inicio"),
+  horaFin: text("hora_fin"),
   cantidadPersonas: integer("cantidad_personas").notNull(),
   estado: estadoReservaEnum("estado").notNull().default("pendiente"),
   totalPagado: integer("total_pagado").notNull(),
@@ -73,6 +75,8 @@ export const insertReservaSchema = createInsertSchema(reservas).omit({
   createdAt: true,
 }).extend({
   fechaRuta: z.string().or(z.date()).transform((val) => new Date(val)),
+  horaInicio: z.string().optional(),
+  horaFin: z.string().optional(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;

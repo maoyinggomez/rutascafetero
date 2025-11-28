@@ -3,7 +3,7 @@ import { db } from "./db";
 import { sql } from "drizzle-orm";
 
 async function migrate() {
-  console.log("🔄 Aplicando migración para agregar columna 'imagenes'...");
+  console.log("🔄 Aplicando migraciones...");
   
   try {
     // Agregar columna imagenes si no existe
@@ -18,7 +18,18 @@ async function migrate() {
     `);
     console.log("✅ Columna 'imagen_url' ahora es nullable");
 
-    console.log("✅ Migración completada exitosamente");
+    // Agregar columnas de horario a reservas
+    await db.execute(sql`
+      ALTER TABLE reservas ADD COLUMN IF NOT EXISTS hora_inicio text
+    `);
+    console.log("✅ Columna 'hora_inicio' agregada correctamente");
+
+    await db.execute(sql`
+      ALTER TABLE reservas ADD COLUMN IF NOT EXISTS hora_fin text
+    `);
+    console.log("✅ Columna 'hora_fin' agregada correctamente");
+
+    console.log("✅ Migraciones completadas exitosamente");
     process.exit(0);
   } catch (error) {
     console.error("❌ Error en migración:", error);
