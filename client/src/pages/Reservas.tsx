@@ -1,13 +1,27 @@
 import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Calendar, MapPin, Users } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Calendar, MapPin, Users, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -36,10 +50,32 @@ const estadoLabels = {
 export default function Reservas() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const { data: reservas, isLoading } = useQuery<Reserva[]>({
     queryKey: ["/api/reservas/mias"],
     enabled: isAuthenticated,
+  });
+
+  const cancelarReservaMutation = useMutation({
+    mutationFn: async (reservaId: string) => {
+      return apiRequest("DELETE", `/api/reservas/${reservaId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Reserva cancelada",
+        description: "Tu reserva ha sido cancelada exitosamente",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/reservas/mias"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo cancelar la reserva",
+        variant: "destructive",
+      });
+    },
   });
 
   useEffect(() => {
@@ -120,7 +156,7 @@ export default function Reservas() {
                         </div>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
                           <div className="flex items-center gap-2 text-sm">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
                             <div>
@@ -149,6 +185,40 @@ export default function Reservas() {
                             </div>
                           </div>
                         </div>
+                        
+                        {reserva.estado === "pendiente" && (
+                          <div className="pt-4 border-t">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  disabled={cancelarReservaMutation.isPending}
+                                >
+                                  <XCircle className="h-4 w-4 mr-2" />
+                                  Cancelar Reserva
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta acción cancelará tu reserva. Esta acción no se puede deshacer.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>No, mantener reserva</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => cancelarReservaMutation.mutate(reserva.id)}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Sí, cancelar reserva
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}

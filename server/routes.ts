@@ -374,6 +374,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // DELETE para cancelar reserva (solo turistas, solo si está pendiente)
+  app.delete("/api/reservas/:id", authenticate, async (req, res) => {
+    try {
+      console.log("🔵 DELETE /api/reservas/:id - ID:", req.params.id);
+      const reserva = await storage.getReserva(req.params.id);
+      console.log("🔵 Reserva encontrada:", reserva);
+      
+      if (!reserva) {
+        return res.status(404).json({ error: "Reserva no encontrada" });
+      }
+
+      // Verificar que la reserva pertenece al usuario
+      if (reserva.userId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para cancelar esta reserva" });
+      }
+
+      // Verificar que la reserva está pendiente
+      if (reserva.estado !== "pendiente") {
+        return res.status(400).json({ 
+          error: "Solo puedes cancelar reservas que están en estado pendiente" 
+        });
+      }
+
+      // Cambiar estado a cancelada directamente (sin verificar roles)
+      const reservaCancelada = await storage.updateReservaEstado(
+        req.params.id, 
+        "cancelada"
+      );
+      console.log("🔵 Reserva cancelada:", reservaCancelada);
+
+      return res.json(reservaCancelada);
+    } catch (error: any) {
+      console.error("🔴 Error al cancelar reserva:", error);
+      return res.status(500).json({ 
+        error: error.message || "Error al cancelar reserva" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -33,6 +33,7 @@ export interface IStorage {
   deleteRuta(id: string): Promise<boolean>;
 
   // Reservas
+  getReserva(id: string): Promise<Reserva | undefined>;
   getReservasByUser(userId: string): Promise<Reserva[]>;
   getAllReservas(): Promise<Reserva[]>;
   getReservasPorRuta(rutaId: string, user: JWTPayload): Promise<Reserva[]>;
@@ -138,6 +139,11 @@ export class PostgresStorage implements IStorage {
   }
 
   // Reservas
+  async getReserva(id: string): Promise<Reserva | undefined> {
+    const result = await db.select().from(reservas).where(eq(reservas.id, id));
+    return result[0];
+  }
+
   async getReservasByUser(userId: string): Promise<Reserva[]> {
     return db.select().from(reservas).where(eq(reservas.userId, userId));
   }
