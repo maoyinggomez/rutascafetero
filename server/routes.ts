@@ -14,6 +14,7 @@ import {
   loginSchema,
   insertRutaSchema,
   insertReservaSchema,
+  insertCalificacionSchema,
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -454,6 +455,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ 
         error: error.message || "Error al cancelar reserva" 
       });
+    }
+  });
+
+  // POST para crear calificación
+  app.post("/api/calificaciones", authenticate, async (req, res) => {
+    try {
+      const validatedData = insertCalificacionSchema.parse(req.body);
+      
+      // Verificar que la reserva existe y pertenece al usuario
+      const reserva = await storage.getReserva(validatedData.reservaId);
+      if (!reserva) {
+        return res.status(404).json({ error: "Reserva no encontrada" });
+      }
+
+      if (reserva.userId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para calificar esta reserva" });
+      }
+
+      // Crear calificación
+      const calificacion = await storage.createCalificacion({
+        ...validatedData,
+        userId: req.user!.userId,
+      });
+
+      // Recalcular rating de la ruta
+      await storage.updateRutaRating(validatedData.rutaId);
+
+      res.json(calificacion);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Error al crear calificación" });
+    }
+  });
+
+  // GET para obtener calificaciones de una ruta (solo anfitrion dueño)
+  app.get("/api/calificaciones/ruta/:rutaId", authenticate, async (req, res) => {
+    try {
+      const ruta = await storage.getRuta(req.params.rutaId);
+      if (!ruta) {
+        return res.status(404).json({ error: "Ruta no encontrada" });
+      }
+
+      // Verificar que el usuario es el dueño de la ruta
+      if (ruta.anfitrionId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para ver estas calificaciones" });
+      }
+
+      const calificaciones = await storage.getCalificacionesPorRuta(req.params.rutaId);
+      res.json(calificaciones);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Error al obtener calificaciones" });
+    }
+  });
+
+  // GET para verificar si existe calificación para una reserva
+  app.get("/api/calificaciones/reserva/:reservaId", authenticate, async (req, res) => {
+    try {
+      const reserva = await storage.getReserva(req.params.reservaId);
+      if (!reserva) {
+        return res.status(404).json({ error: "Reserva no encontrada" });
+      }
+
+      if (reserva.userId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para ver esto" });
+      }
+
+      const calificacion = await storage.getCalificacionPorReserva(req.params.reservaId);
+      res.json(calificacion || null);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Error al obtener calificación" });
     }
   });
 

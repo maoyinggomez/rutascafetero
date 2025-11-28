@@ -29,6 +29,20 @@ async function migrate() {
     `);
     console.log("✅ Columna 'hora_fin' agregada correctamente");
 
+    // Crear tabla de calificaciones
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS calificaciones (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        reserva_id varchar NOT NULL REFERENCES reservas(id),
+        user_id varchar NOT NULL REFERENCES users(id),
+        ruta_id varchar NOT NULL REFERENCES rutas(id),
+        rating integer NOT NULL,
+        comentario text,
+        created_at timestamp NOT NULL DEFAULT now()
+      )
+    `);
+    console.log("✅ Tabla 'calificaciones' creada correctamente");
+
     console.log("✅ Migraciones completadas exitosamente");
     process.exit(0);
   } catch (error) {

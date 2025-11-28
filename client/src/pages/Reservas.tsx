@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import RatingModal from "@/components/RatingModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Calendar, MapPin, Users, XCircle, Clock } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Clock, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -35,6 +36,11 @@ interface Reserva {
   horaInicio?: string;
   horaFin?: string;
   createdAt: string;
+}
+
+interface RutaInfo {
+  id: string;
+  nombre: string;
 }
 
 const estadoColors = {
@@ -54,6 +60,9 @@ export default function Reservas() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [selectedReservaId, setSelectedReservaId] = useState<string | null>(null);
+  const [rutaInfo, setRutaInfo] = useState<RutaInfo | null>(null);
 
   const { data: reservas, isLoading } = useQuery<Reserva[]>({
     queryKey: ["/api/reservas/mias"],
@@ -80,11 +89,90 @@ export default function Reservas() {
     },
   });
 
+  const crearCalificacionMutation = useMutation({
+    mutationFn: async ({
+      reservaId,
+      rutaId,
+      rating,
+      comentario,
+    }: {
+      reservaId: string;
+      rutaId: string;
+      rating: number;
+      comentario: string;
+    }) => {
+      return apiRequest("POST", "/api/calificaciones", {
+        reservaId,
+        rutaId,
+        rating,
+        comentario,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Calificación enviada",
+        description: "Gracias por tu opinión, ayuda a otros viajeros",
+      });
+      setRatingModalOpen(false);
+      setSelectedReservaId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/reservas/mias"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo enviar la calificación",
+        variant: "destructive",
+      });
+    },
+  });
+
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       setLocation("/login");
     }
   }, [authLoading, isAuthenticated, setLocation]);
+
+  const isReservationEnded = (reserva: Reserva): boolean => {
+    if (!reserva.horaFin || reserva.estado !== "confirmada") {
+      return false;
+    }
+
+    const [hours, minutes] = reserva.horaFin.split(":").map(Number);
+    const endTime = new Date(reserva.fechaRuta);
+    endTime.setHours(hours, minutes, 0, 0);
+
+    return new Date() > endTime;
+  };
+
+  const openRatingModal = async (reserva: Reserva) => {
+    try {
+      // Verificar si ya existe calificación
+      const existing = await apiRequest(
+        "GET",
+        `/api/calificaciones/reserva/${reserva.id}`
+      );
+
+      if (existing) {
+        toast({
+          title: "Ya calificaste",
+          description: "Ya has calificado esta experiencia",
+        });
+        return;
+      }
+
+      // Obtener info de la ruta
+      const ruta = await apiRequest("GET", `/api/rutas/${reserva.rutaId}`);
+      setRutaInfo(ruta);
+      setSelectedReservaId(reserva.id);
+      setRatingModalOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo abrir el formulario de calificación",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (authLoading) {
     return (
@@ -201,9 +289,34 @@ export default function Reservas() {
                             </div>
                           </div>
                         )}
+
+                        {isReservationEnded(reserva) && (
+                          <div className="mb-4 p-3 bg-green-50 rounded-lg border border-green-100">
+                            <div className="flex items-center gap-2 text-sm">
+                              <AlertCircle className="h-4 w-4 text-green-600" />
+                              <div>
+                                <div className="font-medium text-green-900">Tu experiencia ha terminado</div>
+                                <div className="text-green-700 text-xs">
+                                  Califica tu experiencia para ayudar a otros viajeros
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
-                        {reserva.estado === "pendiente" && (
-                          <div className="pt-4 border-t">
+                        <div className="pt-4 border-t flex gap-2 flex-wrap">
+                          {isReservationEnded(reserva) && (
+                            <Button
+                              onClick={() => openRatingModal(reserva)}
+                              className="bg-green-600 text-white hover:bg-green-700"
+                              size="sm"
+                              disabled={crearCalificacionMutation.isPending}
+                            >
+                              ⭐ Calificar Experiencia
+                            </Button>
+                          )}
+                          
+                          {reserva.estado === "pendiente" && (
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <Button 
@@ -233,8 +346,8 @@ export default function Reservas() {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}
@@ -254,6 +367,23 @@ export default function Reservas() {
           )}
         </div>
       </main>
+
+      <RatingModal
+        open={ratingModalOpen}
+        onOpenChange={setRatingModalOpen}
+        rutaNombre={rutaInfo?.nombre}
+        isLoading={crearCalificacionMutation.isPending}
+        onSubmit={async (rating, comentario) => {
+          if (selectedReservaId && rutaInfo) {
+            await crearCalificacionMutation.mutateAsync({
+              reservaId: selectedReservaId,
+              rutaId: rutaInfo.id,
+              rating,
+              comentario,
+            });
+          }
+        }}
+      />
 
       <Footer />
     </div>

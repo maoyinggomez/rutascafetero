@@ -49,6 +49,16 @@ export const reservas = pgTable("reservas", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
+export const calificaciones = pgTable("calificaciones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reservaId: varchar("reserva_id").notNull().references(() => reservas.id),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  rutaId: varchar("ruta_id").notNull().references(() => rutas.id),
+  rating: integer("rating").notNull(),
+  comentario: text("comentario"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
@@ -79,9 +89,19 @@ export const insertReservaSchema = createInsertSchema(reservas).omit({
   horaFin: z.string().optional(),
 });
 
+export const insertCalificacionSchema = createInsertSchema(calificaciones).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  rating: z.number().min(1).max(5),
+  comentario: z.string().optional(),
+});
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 export type Ruta = typeof rutas.$inferSelect;
 export type InsertRuta = z.infer<typeof insertRutaSchema>;
 export type Reserva = typeof reservas.$inferSelect;
 export type InsertReserva = z.infer<typeof insertReservaSchema>;
+export type Calificacion = typeof calificaciones.$inferSelect;
+export type InsertCalificacion = z.infer<typeof insertCalificacionSchema>;

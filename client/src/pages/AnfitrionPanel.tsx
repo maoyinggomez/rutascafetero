@@ -27,7 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { MapPin, Users, DollarSign, Plus, Trash2, Edit, CheckCircle, XCircle, Clock } from "lucide-react";
+import { MapPin, Users, DollarSign, Plus, Trash2, Edit, CheckCircle, XCircle, Clock, Star } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -63,6 +63,16 @@ interface Reserva {
   createdAt: string;
 }
 
+interface Calificacion {
+  id: string;
+  reservaId: string;
+  rutaId: string;
+  userId: string;
+  rating: number;
+  comentario?: string;
+  createdAt: string;
+}
+
 const estadoColors = {
   pendiente: "bg-yellow-100 text-yellow-800 border-yellow-200",
   confirmada: "bg-green-100 text-green-800 border-green-200",
@@ -82,6 +92,7 @@ export default function AnfitrionPanel() {
     reservaId?: string;
     rutaId?: string;
   }>({ type: null });
+  const [selectedRutaIdForRating, setSelectedRutaIdForRating] = useState<string | null>(null);
 
   const { 
     data: misRutas, 
@@ -95,6 +106,11 @@ export default function AnfitrionPanel() {
   const { data: reservasDeRutas, isLoading: reservasLoading } = useQuery<Reserva[]>({
     queryKey: ["/api", "reservas"],
     enabled: isAuthenticated && isAnfitrion,
+  });
+
+  const { data: calificacionesDeRuta, isLoading: calificacionesLoading } = useQuery<Calificacion[]>({
+    queryKey: ["/api/calificaciones/ruta", selectedRutaIdForRating],
+    enabled: isAuthenticated && isAnfitrion && !!selectedRutaIdForRating,
   });
 
   useEffect(() => {
@@ -299,6 +315,7 @@ export default function AnfitrionPanel() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="reservas">Todas las Reservas</TabsTrigger>
+              <TabsTrigger value="calificaciones">Calificaciones</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rutas" className="space-y-4">
@@ -525,6 +542,85 @@ export default function AnfitrionPanel() {
                         </TableBody>
                       </Table>
                     </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="calificaciones" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Calificaciones Recibidas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {misRutasFiltradas.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No tienes rutas aún
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-6 space-y-2">
+                        <label className="text-sm font-medium">Selecciona una ruta para ver calificaciones:</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {misRutasFiltradas.map((ruta) => (
+                            <Button
+                              key={ruta.id}
+                              variant={selectedRutaIdForRating === ruta.id ? "default" : "outline"}
+                              onClick={() => setSelectedRutaIdForRating(ruta.id)}
+                              className="justify-start"
+                            >
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {ruta.nombre} ({ruta.resenas})
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {selectedRutaIdForRating && (
+                        <div className="space-y-4">
+                          {calificacionesLoading ? (
+                            <div className="space-y-4">
+                              {[...Array(3)].map((_, i) => (
+                                <Skeleton key={i} className="h-24" />
+                              ))}
+                            </div>
+                          ) : calificacionesDeRuta && calificacionesDeRuta.length > 0 ? (
+                            <div className="space-y-4">
+                              {calificacionesDeRuta.map((cal) => (
+                                <div key={cal.id} className="border rounded-lg p-4 bg-gradient-to-r from-yellow-50 to-orange-50">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          size={16}
+                                          className={i < cal.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
+                                        />
+                                      ))}
+                                      <span className="font-medium text-sm ml-2">
+                                        {cal.rating}/5
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(cal.createdAt), "dd/MM/yyyy HH:mm")}
+                                    </span>
+                                  </div>
+                                  {cal.comentario && (
+                                    <p className="text-sm text-gray-700 italic">
+                                      "{cal.comentario}"
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              Esta ruta aún no tiene calificaciones
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
