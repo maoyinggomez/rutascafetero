@@ -308,6 +308,9 @@ const handleReservar = (e: React.FormEvent) => {
                         </p>
                       )}
                     </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="personas">Cantidad de Personas</Label>
                       <Input
                         id="personas"
                         type="number"

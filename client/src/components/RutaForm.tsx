@@ -22,7 +22,8 @@ const rutaSchema = z.object({
   descripcion: z.string().min(10, "Mínimo 10 caracteres"),
   destino: z.string().min(2, "Ingresa un destino"),
   duracion: z.string().min(1, "Ingresa la duración"),
-  duracionHoras: z.coerce.number().min(1),
+  duracionHoras: z.coerce.number().min(0.083, "La duración mínima es de 5 minutos"),
+  duracionMinutos: z.coerce.number().min(0).max(59),
   precio: z.coerce.number().min(1),
   precioPorPersona: z.coerce.number().min(1),
   cupoMaximo: z.coerce.number().min(1),
@@ -62,11 +63,13 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
+  const [duracionHoras, setDuracionHoras] = useState(0);
+  const [duracionMinutos, setDuracionMinutos] = useState(5);
   const { toast } = useToast();
 
   const isEditing = !!rutaToEdit;
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<RutaFormData>({
+  const { register, handleSubmit, reset, formState: { errors }, watch, setValue } = useForm<RutaFormData>({
     resolver: zodResolver(rutaSchema),
     defaultValues: rutaToEdit ? {
       nombre: rutaToEdit.nombre,
@@ -74,6 +77,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       destino: rutaToEdit.destino,
       duracion: rutaToEdit.duracion,
       duracionHoras: rutaToEdit.duracionHoras,
+      duracionMinutos: 0,
       precio: rutaToEdit.precio,
       precioPorPersona: rutaToEdit.precioPorPersona,
       cupoMaximo: rutaToEdit.cupoMaximo,
@@ -81,7 +85,8 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       puntosInteres: rutaToEdit.puntosInteres?.join(", ") || "",
       imagenUrl: rutaToEdit.imagenUrl || "",
     } : {
-      duracionHoras: 1,
+      duracionHoras: 0,
+      duracionMinutos: 5,
       cupoMaximo: 20,
     },
   });
@@ -267,23 +272,50 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
           <div className="space-y-4">
             <h3 className="font-semibold">Duración y Precio</h3>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Duración (texto)</Label>
-                <Input
-                  {...register("duracion")}
-                  placeholder="ej: 6-8 horas"
-                />
+            <div className="space-y-3">
+              <Label>Duración</Label>
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Horas</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="23"
+                    {...register("duracionHoras")}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      setDuracionHoras(val);
+                      const totalHoras = val + (duracionMinutos / 60);
+                      setValue("duracionHoras", totalHoras);
+                    }}
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  <span className="text-sm">h</span>
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Minutos</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="59"
+                    step="5"
+                    {...register("duracionMinutos")}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      setDuracionMinutos(val);
+                      const totalHoras = duracionHoras + (val / 60);
+                      setValue("duracionHoras", totalHoras);
+                    }}
+                  />
+                </div>
+                <div className="flex items-end pb-2">
+                  <span className="text-sm">min</span>
+                </div>
               </div>
-
-              <div>
-                <Label>Duración (horas)</Label>
-                <Input
-                  type="number"
-                  {...register("duracionHoras")}
-                  min="1"
-                />
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Total: {(duracionHoras + (duracionMinutos / 60)).toFixed(2)}h ({Math.floor(duracionHoras)}h {duracionMinutos}min)
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
