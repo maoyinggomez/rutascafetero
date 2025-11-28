@@ -101,12 +101,14 @@ const handleReservar = (e: React.FormEvent) => {
 
   const precioUnitario = ruta.precioPorPersona || ruta.precio;
 
-  // 👇 Este es el cambio importante
+  // Convertir la fecha string a objeto Date y luego a ISO string con hora
+  const fechaDate = new Date(fechaRuta);
+  fechaDate.setHours(10, 0, 0, 0); // Establecer hora por defecto (10:00 AM)
+
   reservaMutation.mutate({
     rutaId: ruta.id,
-    userId: user?.id ?? "", // ✅ ahora se envía el usuario logueado
-    fechaRuta: fechaRuta,
- // ✅ formato string ISO correcto
+    userId: user?.id ?? "",
+    fechaRuta: fechaDate.toISOString(), // Enviar como ISO string completo
     cantidadPersonas: Number(cantidadPersonas),
     totalPagado: precioUnitario * cantidadPersonas,
   });

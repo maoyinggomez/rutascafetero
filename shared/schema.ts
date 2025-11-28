@@ -69,6 +69,8 @@ export const insertReservaSchema = createInsertSchema(reservas).omit({
   id: true,
   estado: true,
   createdAt: true,
+}).extend({
+  fechaRuta: z.string().or(z.date()).transform((val) => new Date(val)),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
