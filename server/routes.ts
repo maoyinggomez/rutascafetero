@@ -123,32 +123,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
-    upload.single("imagen"),
+    upload.array("imagen", 5),
     async (req, res) => {
       try {
         // Validar datos básicos
         const data = JSON.parse(req.body.data || "{}");
         const validatedData = insertRutaSchema.parse(data);
 
-        // Si hay archivo subido, usar la ruta relativa; sino usar la URL proporcionada
-        const imagenUrl = req.file 
-          ? `/uploads/${req.file.filename}`
-          : validatedData.imagenUrl;
+        // Preparar URLs de imágenes
+        const imagenUrls = req.files?.map(f => `/uploads/${f.filename}`) || [];
+        const allImagens = [...imagenUrls, ...(data.imagenes || [])];
+        const imagenUrl = allImagens[0] || validatedData.imagenUrl;
 
         const ruta = await storage.createRuta({
           ...validatedData,
           imagenUrl,
+          imagenes: allImagens,
           anfitrionId: req.user!.userId, // El anfitrión es quien sube
         });
 
         res.status(201).json(ruta);
       } catch (error: any) {
-        // Limpiar archivo si hay error
-        if (req.file) {
+        // Limpiar archivos si hay error
+        if (req.files) {
           const fs = await import("fs").then(m => m.promises);
-          try {
-            await fs.unlink(req.file.path);
-          } catch {}
+          for (const file of req.files) {
+            try {
+              await fs.unlink(file.path);
+            } catch {}
+          }
         }
         res.status(400).json({ error: error.message || "Error al crear ruta" });
       }
@@ -159,28 +162,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas/:id",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
-    upload.single("imagen"),
+    upload.array("imagen", 5),
     async (req, res) => {
       try {
         // Obtener ruta actual
         const rutaActual = await storage.getRuta(req.params.id);
         if (!rutaActual) {
-          if (req.file) {
+          if (req.files) {
             const fs = await import("fs").then(m => m.promises);
-            try {
-              await fs.unlink(req.file.path);
-            } catch {}
+            for (const file of req.files) {
+              try {
+                await fs.unlink(file.path);
+              } catch {}
+            }
           }
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
 
         // Verificar permisos - anfitrión solo puede actualizar sus propias rutas
         if (req.user!.rol === "anfitrion" && rutaActual.anfitrionId !== req.user!.userId) {
-          if (req.file) {
+          if (req.files) {
             const fs = await import("fs").then(m => m.promises);
-            try {
-              await fs.unlink(req.file.path);
-            } catch {}
+            for (const file of req.files) {
+              try {
+                await fs.unlink(file.path);
+              } catch {}
+            }
           }
           return res.status(403).json({ error: "No tienes permisos para actualizar esta ruta" });
         }
@@ -188,17 +195,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Preparar datos para actualizar
         const data = req.body.data ? JSON.parse(req.body.data) : req.body;
         
-        // Si hay nueva imagen, usar la nueva; sino mantener la anterior
-        if (req.file) {
-          data.imagenUrl = `/uploads/${req.file.filename}`;
-          
-          // Eliminar imagen anterior si existe y es local
-          if (rutaActual.imagenUrl && rutaActual.imagenUrl.startsWith("/uploads/")) {
+        // Si hay nuevas imágenes, usar las nuevas; sino mantener las anteriores
+        if (req.files && req.files.length > 0) {
+          const newImageUrls = req.files.map(f => `/uploads/${f.filename}`);
+          const existingImages = data.imagenes?.filter((img: string) => !img.startsWith('blob:') && !img.startsWith('data:')) || [];
+          data.imagenes = [...newImageUrls, ...existingImages];
+          data.imagenUrl = data.imagenes[0];
+
+          // Eliminar imágenes anteriores locales que no estén en la nueva lista
+          if (rutaActual.imagenes && rutaActual.imagenes.length > 0) {
             const fs = await import("fs").then(m => m.promises);
-            const oldImagePath = `client/public${rutaActual.imagenUrl}`;
-            try {
-              await fs.unlink(oldImagePath);
-            } catch {}
+            for (const oldImg of rutaActual.imagenes) {
+              if (oldImg.startsWith("/uploads/") && !data.imagenes.includes(oldImg)) {
+                const oldImagePath = `client/public${oldImg}`;
+                try {
+                  await fs.unlink(oldImagePath);
+                } catch {}
+              }
+            }
           }
         }
 
@@ -208,12 +222,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         res.json(ruta);
       } catch (error: any) {
-        // Limpiar archivo si hay error
-        if (req.file) {
+        // Limpiar archivos si hay error
+        if (req.files) {
           const fs = await import("fs").then(m => m.promises);
-          try {
-            await fs.unlink(req.file.path);
-          } catch {}
+          for (const file of req.files) {
+            try {
+              await fs.unlink(file.path);
+            } catch {}
+          }
         }
         res.status(400).json({ error: error.message || "Error al actualizar ruta" });
       }
@@ -270,12 +286,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/reservas",
     authenticate,
-    authorizeRole(["admin"]),
     async (req, res) => {
       try {
-        const reservas = await storage.getAllReservas();
-        res.json(reservas);
+        console.log("🔵 GET /api/reservas - Usuario:", req.user!.userId, "Rol:", req.user!.rol);
+        
+        // Si es admin, obtiene todas las reservas
+        if (req.user!.rol === "admin") {
+          const reservas = await storage.getAllReservas();
+          console.log("🔵 Admin - Total reservas:", reservas.length);
+          return res.json(reservas);
+        }
+        
+        // Si es anfitrión, obtiene solo las reservas de sus rutas
+        if (req.user!.rol === "anfitrion") {
+          const rutasDelAnfitrion = await storage.getAllRutas({});
+          console.log("🔵 Total rutas en BD:", rutasDelAnfitrion.length);
+          
+          const misRutas = rutasDelAnfitrion.filter(r => r.anfitrionId === req.user!.userId);
+          console.log("🔵 Mis rutas como anfitrión:", misRutas.length, "IDs:", misRutas.map(r => r.id));
+          
+          const misRutasIds = misRutas.map(r => r.id);
+          
+          const todasReservas = await storage.getAllReservas();
+          console.log("🔵 Total reservas en BD:", todasReservas.length);
+          
+          const reservasDelAnfitrion = todasReservas.filter(r => misRutasIds.includes(r.rutaId));
+          console.log("🔵 Reservas del anfitrión:", reservasDelAnfitrion.length);
+          
+          return res.json(reservasDelAnfitrion);
+        }
+        
+        // Para otros roles, retornar error
+        return res.status(403).json({ error: "No tienes permisos para acceder a las reservas" });
       } catch (error: any) {
+        console.error("🔴 Error en GET /api/reservas:", error);
         res.status(500).json({ error: error.message || "Error al obtener reservas" });
       }
     }

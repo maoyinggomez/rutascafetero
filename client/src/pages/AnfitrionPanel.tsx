@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { MapPin, Users, DollarSign, Plus, Trash2, Edit, CheckCircle, XCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -69,6 +77,11 @@ export default function AnfitrionPanel() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRuta, setEditingRuta] = useState<Ruta | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dialogState, setDialogState] = useState<{
+    type: "rechazar" | "eliminar" | null;
+    reservaId?: string;
+    rutaId?: string;
+  }>({ type: null });
 
   const { 
     data: misRutas, 
@@ -123,14 +136,16 @@ export default function AnfitrionPanel() {
     .reduce((sum, r) => sum + r.totalPagado, 0);
 
   const handleDeleteRuta = async (rutaId: string) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar esta ruta?")) {
-      return;
-    }
+    setDialogState({ type: "eliminar", rutaId });
+  };
+
+  const confirmDeleteRuta = async () => {
+    if (!dialogState.rutaId) return;
 
     try {
-      setDeletingId(rutaId);
+      setDeletingId(dialogState.rutaId);
       const token = localStorage.getItem("auth_token");
-      const response = await fetch(`/api/rutas/${rutaId}`, {
+      const response = await fetch(`/api/rutas/${dialogState.rutaId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -148,6 +163,7 @@ export default function AnfitrionPanel() {
       });
 
       refetchRutas();
+      setDialogState({ type: null });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -287,16 +303,21 @@ export default function AnfitrionPanel() {
 
             <TabsContent value="rutas" className="space-y-4">
               <div className="flex justify-end mb-4">
-                <RutaForm 
-                  rutaToEdit={editingRuta}
-                  isOpen={isFormOpen}
-                  onOpenChange={handleCloseForm}
-                  onSuccess={() => {
-                    refetchRutas();
-                    handleCloseForm();
-                  }}
-                />
+                <Button onClick={() => setIsFormOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear Nueva Ruta
+                </Button>
               </div>
+
+              <RutaForm 
+                rutaToEdit={editingRuta}
+                isOpen={isFormOpen}
+                onOpenChange={handleCloseForm}
+                onSuccess={() => {
+                  refetchRutas();
+                  handleCloseForm();
+                }}
+              />
 
               <Card>
                 <CardHeader>
@@ -312,15 +333,10 @@ export default function AnfitrionPanel() {
                   ) : misRutasFiltradas.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground mb-4">No tienes rutas aún</p>
-                      <RutaForm 
-                        rutaToEdit={null}
-                        isOpen={isFormOpen}
-                        onOpenChange={handleCloseForm}
-                        onSuccess={() => {
-                          refetchRutas();
-                          handleCloseForm();
-                        }}
-                      />
+                      <Button onClick={() => setIsFormOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear tu primera ruta
+                      </Button>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -438,11 +454,7 @@ export default function AnfitrionPanel() {
                                 size="sm"
                                 variant="outline"
                                 className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
-                                onClick={() => {
-                                  if (confirm("¿Está seguro de rechazar esta reserva?")) {
-                                    handleActualizarReserva(reserva.id, "cancelada");
-                                  }
-                                }}
+                                onClick={() => setDialogState({ type: "rechazar", reservaId: reserva.id })}
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Rechazar
@@ -520,6 +532,70 @@ export default function AnfitrionPanel() {
           </Tabs>
         </div>
       </main>
+
+      {/* Dialog para rechazar reserva */}
+      <Dialog open={dialogState.type === "rechazar"} onOpenChange={(open) => !open && setDialogState({ type: null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <XCircle className="h-5 w-5" />
+              Rechazar Reserva
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas rechazar esta reserva? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDialogState({ type: null })}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (dialogState.reservaId) {
+                  handleActualizarReserva(dialogState.reservaId, "cancelada");
+                  setDialogState({ type: null });
+                }
+              }}
+            >
+              Rechazar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para eliminar ruta */}
+      <Dialog open={dialogState.type === "eliminar"} onOpenChange={(open) => !open && setDialogState({ type: null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Eliminar Ruta
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas eliminar esta ruta? Esta acción no se puede deshacer y se eliminarán todas las reservas asociadas.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDialogState({ type: null })}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteRuta}
+              disabled={deletingId !== null}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

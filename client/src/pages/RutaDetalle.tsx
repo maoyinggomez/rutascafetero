@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ImageCarousel from "@/components/ImageCarousel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,7 @@ interface Ruta {
   duracion: string;
   precio: number;
   imagenUrl: string;
+  imagenes?: string[];
   cupoMaximo: number;
   rating: string;
   resenas: number;
@@ -160,13 +162,14 @@ const handleReservar = (e: React.FormEvent) => {
       <Navbar />
       
       <main className="flex-1">
-        <div className="relative h-96 overflow-hidden">
-          <img
-            src={ruta.imagenUrl}
-            alt={ruta.nombre}
-            className="w-full h-full object-cover"
+        {/* Carrusel de imágenes */}
+        <div className="relative">
+          <ImageCarousel 
+            images={ruta.imagenes || [ruta.imagenUrl].filter(Boolean)}
+            title={ruta.nombre}
+            className="max-h-96"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

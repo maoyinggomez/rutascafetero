@@ -23,7 +23,8 @@ export const rutas = pgTable("rutas", {
   dificultad: dificultadEnum("dificultad").notNull(),
   duracion: text("duracion").notNull(),
   precio: integer("precio").notNull(),
-  imagenUrl: text("imagen_url").notNull(),
+  imagenUrl: text("imagen_url"),
+  imagenes: text("imagenes").array().default([]),
   cupoMaximo: integer("cupo_maximo").notNull().default(20),
   rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("4.5"),
   resenas: integer("resenas").notNull().default(0),
@@ -62,6 +63,7 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
   disponible: true,
 }).extend({
   imagenUrl: z.string().optional(),
+  imagenes: z.array(z.string()).optional().default([]),
   anfitrionId: z.string().optional(),
 });
 

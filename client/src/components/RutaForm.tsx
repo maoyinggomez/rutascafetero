@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, X } from "lucide-react";
+import { Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
 
 const rutaSchema = z.object({
   nombre: z.string().min(3, "Mínimo 3 caracteres"),
@@ -55,6 +55,7 @@ interface Ruta {
   tags?: string[];
   puntosInteres?: string[];
   imagenUrl?: string;
+  imagenes?: string[];
 }
 
 interface RutaFormProps {
@@ -65,9 +66,10 @@ interface RutaFormProps {
 }
 
 export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }: RutaFormProps) {
-  const [preview, setPreview] = useState<string | null>(rutaToEdit?.imagenUrl || null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previews, setPreviews] = useState<string[]>(rutaToEdit?.imagenes || rutaToEdit?.imagenUrl ? [rutaToEdit.imagenUrl] : []);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
   const { toast } = useToast();
 
   const isEditing = !!rutaToEdit;
@@ -95,27 +97,62 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
   });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+    const files = Array.from(e.target.files || []);
+    
+    for (const file of files) {
       if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "Error",
-          description: "La imagen no debe superar 5MB",
+          description: `${file.name} supera los 5MB`,
           variant: "destructive",
         });
-        return;
+        continue;
       }
 
-      setSelectedFile(file);
+      if (previews.length + selectedFiles.length >= 5) {
+        toast({
+          title: "Límite alcanzado",
+          description: "Máximo 5 imágenes por ruta",
+          variant: "destructive",
+        });
+        break;
+      }
+
+      selectedFiles.push(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPreview(reader.result as string);
+        setPreviews(prev => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
+    }
+    
+    setSelectedFiles([...selectedFiles]);
+  };
+
+  const removePreview = (index: number) => {
+    const newPreviews = previews.filter((_, i) => i !== index);
+    setPreviews(newPreviews);
+
+    if (index < selectedFiles.length) {
+      const newFiles = selectedFiles.filter((_, i) => i !== index);
+      setSelectedFiles(newFiles);
+    }
+
+    if (currentPreviewIndex >= newPreviews.length) {
+      setCurrentPreviewIndex(Math.max(0, newPreviews.length - 1));
     }
   };
 
   const onSubmit = async (data: RutaFormData) => {
+    if (previews.length === 0) {
+      toast({
+        title: "Error",
+        description: "Debes agregar al menos una imagen",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -124,15 +161,16 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       // Preparar objeto de datos
       const rutaData = {
         ...data,
-        tags: data.tags.split(",").map(t => t.trim()),
-        puntosInteres: data.puntosInteres.split(",").map(p => p.trim()),
-        imagenUrl: !selectedFile ? (data.imagenUrl || "") : undefined,
+        tags: data.tags.split(",").map(t => t.trim()).filter(t => t),
+        puntosInteres: data.puntosInteres.split(",").map(p => p.trim()).filter(p => p),
+        imagenes: previews.filter(p => !p.startsWith('blob:') && !p.startsWith('data:')),
+        imagenUrl: previews[0] || "",
       };
 
       formData.append("data", JSON.stringify(rutaData));
-      if (selectedFile) {
-        formData.append("imagen", selectedFile);
-      }
+      selectedFiles.forEach((file, idx) => {
+        formData.append(`imagen_${idx}`, file);
+      });
 
       const token = localStorage.getItem("auth_token");
       const method = isEditing ? "PATCH" : "POST";
@@ -157,8 +195,9 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       });
 
       reset();
-      setPreview(null);
-      setSelectedFile(null);
+      setPreviews([]);
+      setSelectedFiles([]);
+      setCurrentPreviewIndex(0);
       onSuccess?.();
       onOpenChange?.(false);
     } catch (error: any) {
@@ -323,63 +362,95 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
             </div>
           </div>
 
-          {/* Upload de Imagen */}
+          {/* Upload de Imágenes */}
           <div className="space-y-4">
-            <h3 className="font-semibold">Imagen de la Ruta</h3>
+            <h3 className="font-semibold">Imágenes de la Ruta (Máximo 5)</h3>
 
-            <Card className="border-2 border-dashed p-6">
-              <div className="space-y-4">
-                {preview && (
-                  <div className="relative">
-                    <img
-                      src={preview}
-                      alt="Preview"
-                      className="w-full h-48 object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPreview(null);
-                        setSelectedFile(null);
-                      }}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded"
-                    >
-                      <X size={20} />
-                    </button>
+            {/* Carrusel de previsualización */}
+            {previews.length > 0 && (
+              <Card className="relative bg-gray-100 rounded-lg overflow-hidden">
+                <div className="relative h-64 w-full flex items-center justify-center">
+                  <img
+                    src={previews[currentPreviewIndex]}
+                    alt={`Preview ${currentPreviewIndex + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* Botones de navegación */}
+                  {previews.length > 1 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPreviewIndex(prev => prev === 0 ? previews.length - 1 : prev - 1)}
+                        className="absolute left-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition"
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPreviewIndex(prev => prev === previews.length - 1 ? 0 : prev + 1)}
+                        className="absolute right-2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition"
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </>
+                  )}
+
+                  {/* Indicador de página */}
+                  <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
+                    {currentPreviewIndex + 1} / {previews.length}
                   </div>
-                )}
-
-                <div className="flex items-center justify-center">
-                  <label className="w-full cursor-pointer">
-                    <div className="flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded hover:bg-gray-50">
-                      <Upload size={20} />
-                      <span>Clic para subir imagen</span>
-                    </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                  </label>
                 </div>
 
-                <p className="text-sm text-gray-500 text-center">
-                  Formatos: JPG, PNG, WebP, GIF | Máximo: 5MB
-                </p>
-              </div>
-            </Card>
+                {/* Galería de miniaturas */}
+                <div className="flex gap-2 p-3 bg-white overflow-x-auto">
+                  {previews.map((preview, idx) => (
+                    <div key={idx} className="relative flex-shrink-0">
+                      <img
+                        src={preview}
+                        alt={`Thumb ${idx + 1}`}
+                        className={`h-16 w-16 object-cover rounded cursor-pointer border-2 transition ${
+                          currentPreviewIndex === idx ? "border-blue-500" : "border-gray-300 hover:border-blue-300"
+                        }`}
+                        onClick={() => setCurrentPreviewIndex(idx)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePreview(idx)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
-            {!selectedFile && (
-              <div>
-                <Label>O ingresa URL de imagen</Label>
-                <Input
-                  {...register("imagenUrl")}
-                  type="url"
-                  placeholder="https://ejemplo.com/imagen.jpg"
-                />
+            {previews.length < 5 && (
+              <div className="flex items-center justify-center">
+                <label className="w-full cursor-pointer">
+                  <div className="flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded hover:bg-gray-50 transition">
+                    <Upload size={20} />
+                    <div className="text-center">
+                      <span>Clic para agregar más imágenes</span>
+                      <p className="text-xs text-gray-500">({previews.length}/5)</p>
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
               </div>
             )}
+
+            <p className="text-sm text-gray-500 text-center">
+              Formatos: JPG, PNG, WebP, GIF | Máximo: 5MB por imagen | Máximo 5 imágenes
+            </p>
           </div>
 
           {/* Botones */}
