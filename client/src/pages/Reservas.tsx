@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Calendar, MapPin, Users, XCircle } from "lucide-react";
+import { Calendar, MapPin, Users, XCircle, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -32,6 +32,8 @@ interface Reserva {
   cantidadPersonas: number;
   estado: "pendiente" | "confirmada" | "cancelada";
   totalPagado: number;
+  horaInicio?: string;
+  horaFin?: string;
   createdAt: string;
 }
 
@@ -185,6 +187,20 @@ export default function Reservas() {
                             </div>
                           </div>
                         </div>
+
+                        {(reserva.horaInicio || reserva.horaFin) && (
+                          <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Clock className="h-4 w-4 text-blue-600" />
+                              <div>
+                                <div className="font-medium text-blue-900">Horario del Tour</div>
+                                <div className="text-blue-700">
+                                  {reserva.horaInicio} {reserva.horaFin && `- ${reserva.horaFin}`}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         
                         {reserva.estado === "pendiente" && (
                           <div className="pt-4 border-t">
