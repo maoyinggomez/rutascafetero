@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
@@ -28,7 +21,6 @@ const rutaSchema = z.object({
   nombre: z.string().min(3, "Mínimo 3 caracteres"),
   descripcion: z.string().min(10, "Mínimo 10 caracteres"),
   destino: z.string().min(2, "Ingresa un destino"),
-  dificultad: z.enum(["Fácil", "Moderado", "Avanzado"]),
   duracion: z.string().min(1, "Ingresa la duración"),
   duracionHoras: z.coerce.number().min(1),
   precio: z.coerce.number().min(1),
@@ -46,7 +38,7 @@ interface Ruta {
   nombre: string;
   descripcion: string;
   destino: string;
-  dificultad: string;
+  dificultad?: string;
   duracion: string;
   duracionHoras: number;
   precio: number;
@@ -74,13 +66,12 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
 
   const isEditing = !!rutaToEdit;
 
-  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<RutaFormData>({
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<RutaFormData>({
     resolver: zodResolver(rutaSchema),
     defaultValues: rutaToEdit ? {
       nombre: rutaToEdit.nombre,
       descripcion: rutaToEdit.descripcion,
       destino: rutaToEdit.destino,
-      dificultad: rutaToEdit.dificultad as "Fácil" | "Moderado" | "Avanzado",
       duracion: rutaToEdit.duracion,
       duracionHoras: rutaToEdit.duracionHoras,
       precio: rutaToEdit.precio,
@@ -92,7 +83,6 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
     } : {
       duracionHoras: 1,
       cupoMaximo: 20,
-      dificultad: "Fácil",
     },
   });
 
@@ -264,22 +254,10 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
               </div>
 
               <div>
-                <Label>Dificultad</Label>
-                <Controller
-                  name="dificultad"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Fácil">Fácil</SelectItem>
-                        <SelectItem value="Moderado">Moderado</SelectItem>
-                        <SelectItem value="Avanzado">Avanzado</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
+                <Label>Duración (texto)</Label>
+                <Input
+                  {...register("duracion")}
+                  placeholder="ej: 6-8 horas"
                 />
               </div>
             </div>
@@ -461,8 +439,9 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
               onClick={() => {
                 onOpenChange?.(false);
                 reset();
-                setPreview(null);
-                setSelectedFile(null);
+                setPreviews([]);
+                setSelectedFiles([]);
+                setCurrentPreviewIndex(0);
               }}
               disabled={isLoading}
             >
