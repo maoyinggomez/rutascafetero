@@ -598,6 +598,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ADMIN ROUTES
+  // GET lista de usuarios para admin
+  app.get(
+    "/api/admin/usuarios",
+    authenticate,
+    authorizeRole(["admin"]),
+    async (req, res) => {
+      try {
+        const usuarios = await storage.getAllUsers();
+        res.json(usuarios);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message || "Error al obtener usuarios" });
+      }
+    }
+  );
+
+  // PUT suspender usuario
+  app.put(
+    "/api/admin/usuarios/:userId/suspender",
+    authenticate,
+    authorizeRole(["admin"]),
+    async (req, res) => {
+      try {
+        const { motivo } = req.body;
+        const usuario = await storage.suspenderUsuario(req.params.userId, motivo);
+        
+        // Registrar en auditoría
+        await storage.registrarAuditLog(
+          req.user!.userId,
+          "suspender",
+          "usuario",
+          req.params.userId,
+          { motivo }
+        );
+
+        res.json(usuario);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message || "Error al suspender usuario" });
+      }
+    }
+  );
+
+  // PUT restaurar usuario
+  app.put(
+    "/api/admin/usuarios/:userId/restaurar",
+    authenticate,
+    authorizeRole(["admin"]),
+    async (req, res) => {
+      try {
+        const usuario = await storage.restaurarUsuario(req.params.userId);
+        
+        // Registrar en auditoría
+        await storage.registrarAuditLog(
+          req.user!.userId,
+          "restaurar",
+          "usuario",
+          req.params.userId,
+          {}
+        );
+
+        res.json(usuario);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message || "Error al restaurar usuario" });
+      }
+    }
+  );
+
+  // PUT validar rol (cambiar rol de usuario)
+  app.put(
+    "/api/admin/usuarios/:userId/validar-rol",
+    authenticate,
+    authorizeRole(["admin"]),
+    async (req, res) => {
+      try {
+        const { nuevoRol } = req.body;
+        const usuario = await storage.cambiarRolUsuario(req.params.userId, nuevoRol);
+        
+        // Registrar en auditoría
+        await storage.registrarAuditLog(
+          req.user!.userId,
+          "cambiar_rol",
+          "usuario",
+          req.params.userId,
+          { nuevoRol }
+        );
+
+        res.json(usuario);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message || "Error al validar rol" });
+      }
+    }
+  );
+
+  // PUT ocultar ruta
+  app.put(
+    "/api/admin/rutas/:rutaId/ocultar",
+    authenticate,
+    authorizeRole(["admin"]),
+    async (req, res) => {
+      try {
+        const ruta = await storage.ocultarRuta(req.params.rutaId);
+        
+        // Registrar en auditoría
+        await storage.registrarAuditLog(
+          req.user!.userId,
+          "ocultar",
+          "ruta",
+          req.params.rutaId,
+          {}
+        );
+
+        res.json(ruta);
+      } catch (error: any) {
+        res.status(400).json({ error: error.message || "Error al ocultar ruta" });
+      }
+    }
+  );
+
+  // GET audit logs
+  app.get(
+    "/api/admin/audit-logs",
+    authenticate,
+    authorizeRole(["admin"]),
+    async (req, res) => {
+      try {
+        const logs = await storage.getAuditLogs();
+        res.json(logs);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message || "Error al obtener audit logs" });
+      }
+    }
+  );
+
+  // GET notificaciones del usuario
+  app.get(
+    "/api/notificaciones",
+    authenticate,
+    async (req, res) => {
+      try {
+        const notificaciones = await storage.getNotificaciones(req.user!.userId);
+        res.json(notificaciones);
+      } catch (error: any) {
+        res.status(500).json({ error: error.message || "Error al obtener notificaciones" });
+      }
+    }
+  );
+
   const httpServer = createServer(app);
 
   return httpServer;

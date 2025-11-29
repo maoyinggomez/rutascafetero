@@ -1,14 +1,15 @@
 import 'dotenv/config';
 import { db } from "./db";
-import { users, rutas, reservas } from "@shared/schema";
+import { users, rutas, reservas, calificaciones } from "@shared/schema";
 import { hashPassword } from "./auth";
 
 async function seed() {
   console.log("🌱 Iniciando seed de la base de datos...");
 
   try {
-    // Limpiar datos existentes
+    // Limpiar datos existentes (en orden inverso de dependencias)
     console.log("Limpiando datos existentes...");
+    await db.delete(calificaciones);
     await db.delete(reservas);
     await db.delete(rutas);
     await db.delete(users);
@@ -82,6 +83,7 @@ async function seed() {
             "Casa de colibríes",
           ],
           disponible: true,
+          estado: "PUBLICADA",
         },
         {
           nombre: "Recorrido Colonial de Filandia",
@@ -105,6 +107,7 @@ async function seed() {
             "Finca cafetera",
           ],
           disponible: true,
+          estado: "PUBLICADA",
         },
         {
           nombre: "Nevado del Ruiz",
@@ -128,6 +131,7 @@ async function seed() {
             "Lagunas de alta montaña",
           ],
           disponible: true,
+          estado: "PUBLICADA",
         },
         {
           nombre: "Parque del Café",
@@ -151,6 +155,7 @@ async function seed() {
             "Teleférico",
           ],
           disponible: true,
+          estado: "PUBLICADA",
         },
         {
           nombre: "Termales Santa Rosa de Cabal",
@@ -174,6 +179,7 @@ async function seed() {
             "Sendero ecológico",
           ],
           disponible: true,
+          estado: "PUBLICADA",
         },
         {
           nombre: "Ruta del Café Sevilla",
@@ -197,6 +203,7 @@ async function seed() {
             "Cata de café",
           ],
           disponible: true,
+          estado: "PUBLICADA",
         },
       ])
       .returning();

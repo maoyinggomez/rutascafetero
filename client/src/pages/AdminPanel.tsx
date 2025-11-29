@@ -1,11 +1,13 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -16,7 +18,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Users, DollarSign, Calendar } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { MapPin, Users, DollarSign, Calendar, ShieldAlert } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -29,6 +39,7 @@ interface Ruta {
   duracion: string;
   resenas: number;
   rating: string;
+  oculta?: boolean;
 }
 
 interface Reserva {
@@ -42,6 +53,25 @@ interface Reserva {
   createdAt: string;
 }
 
+interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: string;
+  suspendido: boolean;
+  motivoSuspension?: string;
+}
+
+interface AuditLog {
+  id: string;
+  userId: string;
+  accion: string;
+  entidad: string;
+  entidadId: string;
+  detalles: string;
+  createdAt: string;
+}
+
 const estadoColors = {
   pendiente: "bg-yellow-100 text-yellow-800 border-yellow-200",
   confirmada: "bg-green-100 text-green-800 border-green-200",
@@ -51,6 +81,10 @@ const estadoColors = {
 export default function AdminPanel() {
   const { isAuthenticated, isAdmin, isLoading: authLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+  const [selectedUser, setSelectedUser] = useState<Usuario | null>(null);
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [motivoSuspension, setMotivoSuspension] = useState("");
 
   const { data: rutas, isLoading: rutasLoading } = useQuery<Ruta[]>({
     queryKey: ["/api", "rutas"],
@@ -60,6 +94,91 @@ export default function AdminPanel() {
   const { data: reservas, isLoading: reservasLoading } = useQuery<Reserva[]>({
     queryKey: ["/api", "reservas"],
     enabled: isAuthenticated && isAdmin,
+  });
+
+  const { data: usuarios, isLoading: usuariosLoading } = useQuery<Usuario[]>({
+    queryKey: ["/api/admin", "usuarios"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/usuarios");
+      return response;
+    },
+    enabled: isAuthenticated && isAdmin,
+  });
+
+  const { data: auditLogs, isLoading: auditLogsLoading } = useQuery<AuditLog[]>({
+    queryKey: ["/api/admin", "audit-logs"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/admin/audit-logs");
+      return response;
+    },
+    enabled: isAuthenticated && isAdmin,
+  });
+
+  // Mutación para suspender usuario
+  const suspenderMutation = useMutation({
+    mutationFn: async ({ userId, motivo }: { userId: string; motivo: string }) => {
+      console.log("🔵 Suspendiendo usuario:", userId, "Motivo:", motivo);
+      return await apiRequest("PUT", `/api/admin/usuarios/${userId}/suspender`, { motivo });
+    },
+    onSuccess: () => {
+      console.log("✅ Usuario suspendido");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "usuarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "audit-logs"] });
+      setShowSuspendDialog(false);
+      setMotivoSuspension("");
+      setSelectedUser(null);
+    },
+    onError: (error) => {
+      console.error("❌ Error al suspender:", error);
+    },
+  });
+
+  // Mutación para restaurar usuario
+  const restaurarMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      console.log("🔵 Restaurando usuario:", userId);
+      return await apiRequest("PUT", `/api/admin/usuarios/${userId}/restaurar`, {});
+    },
+    onSuccess: () => {
+      console.log("✅ Usuario restaurado");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "usuarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "audit-logs"] });
+    },
+    onError: (error) => {
+      console.error("❌ Error al restaurar:", error);
+    },
+  });
+
+  // Mutación para cambiar rol
+  const cambiarRolMutation = useMutation({
+    mutationFn: async ({ userId, nuevoRol }: { userId: string; nuevoRol: string }) => {
+      console.log("🔵 Cambiando rol:", userId, "a:", nuevoRol);
+      return await apiRequest("PUT", `/api/admin/usuarios/${userId}/validar-rol`, { nuevoRol });
+    },
+    onSuccess: () => {
+      console.log("✅ Rol cambiado");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "usuarios"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "audit-logs"] });
+    },
+    onError: (error) => {
+      console.error("❌ Error al cambiar rol:", error);
+    },
+  });
+
+  // Mutación para ocultar ruta
+  const ocultarRutaMutation = useMutation({
+    mutationFn: async (rutaId: string) => {
+      console.log("🔵 Ocultando ruta:", rutaId);
+      return await apiRequest("PUT", `/api/admin/rutas/${rutaId}/ocultar`, {});
+    },
+    onSuccess: () => {
+      console.log("✅ Ruta ocultada");
+      queryClient.invalidateQueries({ queryKey: ["/api", "rutas"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin", "audit-logs"] });
+    },
+    onError: (error) => {
+      console.error("❌ Error al ocultar ruta:", error);
+    },
   });
 
   useEffect(() => {
@@ -100,7 +219,7 @@ export default function AdminPanel() {
               Panel de Administración
             </h1>
             <p className="text-lg text-muted-foreground">
-              Gestiona rutas y reservas
+              Gestiona rutas, reservas, usuarios y seguridad
             </p>
           </div>
         </div>
@@ -150,8 +269,10 @@ export default function AdminPanel() {
 
           <Tabs defaultValue="rutas" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="rutas" data-testid="tab-routes">Rutas</TabsTrigger>
-              <TabsTrigger value="reservas" data-testid="tab-reservations">Reservas</TabsTrigger>
+              <TabsTrigger value="rutas">Rutas</TabsTrigger>
+              <TabsTrigger value="reservas">Reservas</TabsTrigger>
+              <TabsTrigger value="usuarios">Usuarios</TabsTrigger>
+              <TabsTrigger value="auditoria">Auditoría</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rutas" className="space-y-4">
@@ -172,20 +293,36 @@ export default function AdminPanel() {
                         <TableRow>
                           <TableHead>Nombre</TableHead>
                           <TableHead>Destino</TableHead>
-
                           <TableHead>Precio</TableHead>
                           <TableHead>Rating</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Acciones</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {rutas?.map((ruta) => (
-                          <TableRow key={ruta.id} data-testid={`row-route-${ruta.id}`}>
+                          <TableRow key={ruta.id}>
                             <TableCell className="font-medium">{ruta.nombre}</TableCell>
                             <TableCell>{ruta.destino}</TableCell>
-                            <TableCell>
-                            </TableCell>
                             <TableCell>${ruta.precio.toLocaleString()}</TableCell>
                             <TableCell>{ruta.rating} ({ruta.resenas})</TableCell>
+                            <TableCell>
+                              <Badge variant={ruta.oculta ? "destructive" : "default"}>
+                                {ruta.oculta ? "Oculta" : "Visible"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {!ruta.oculta && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => ocultarRutaMutation.mutate(ruta.id)}
+                                  disabled={ocultarRutaMutation.isPending}
+                                >
+                                  Ocultar
+                                </Button>
+                              )}
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -221,7 +358,7 @@ export default function AdminPanel() {
                       </TableHeader>
                       <TableBody>
                         {reservas?.map((reserva) => (
-                          <TableRow key={reserva.id} data-testid={`row-reservation-${reserva.id}`}>
+                          <TableRow key={reserva.id}>
                             <TableCell className="font-mono text-sm">
                               {reserva.id.slice(0, 8)}
                             </TableCell>
@@ -246,9 +383,156 @@ export default function AdminPanel() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="usuarios" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShieldAlert className="h-5 w-5" />
+                    Gestión de Usuarios
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {usuariosLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nombre</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Rol</TableHead>
+                          <TableHead>Estado</TableHead>
+                          <TableHead>Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {usuarios?.map((usuario) => (
+                          <TableRow key={usuario.id}>
+                            <TableCell className="font-medium">{usuario.nombre}</TableCell>
+                            <TableCell>{usuario.email}</TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{usuario.rol}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={usuario.suspendido ? "destructive" : "default"}>
+                                {usuario.suspendido ? "Suspendido" : "Activo"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="space-x-2">
+                              {usuario.suspendido ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => restaurarMutation.mutate(usuario.id)}
+                                  disabled={restaurarMutation.isPending}
+                                >
+                                  Restaurar
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => {
+                                    setSelectedUser(usuario);
+                                    setShowSuspendDialog(true);
+                                  }}
+                                >
+                                  Suspender
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="auditoria" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Registro de Auditoría</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {auditLogsLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-12 w-full" />
+                      ))}
+                    </div>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Acción</TableHead>
+                          <TableHead>Entidad</TableHead>
+                          <TableHead>Detalles</TableHead>
+                          <TableHead>Fecha</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {auditLogs?.slice(0, 20).map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell>
+                              <Badge>{log.accion}</Badge>
+                            </TableCell>
+                            <TableCell>{log.entidad}</TableCell>
+                            <TableCell className="max-w-xs truncate text-sm">
+                              {log.detalles}
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(log.createdAt), "dd/MM/yyyy HH:mm", { locale: es })}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      <AlertDialog open={showSuspendDialog} onOpenChange={setShowSuspendDialog}>
+        <AlertDialogContent>
+          <AlertDialogTitle>Suspender Usuario</AlertDialogTitle>
+          <AlertDialogDescription>
+            ¿Estás seguro de que deseas suspender a {selectedUser?.nombre}? Ingresa el motivo:
+          </AlertDialogDescription>
+          <textarea
+            className="w-full p-2 border rounded mb-4"
+            placeholder="Motivo de la suspensión..."
+            value={motivoSuspension}
+            onChange={(e) => setMotivoSuspension(e.target.value)}
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedUser && motivoSuspension) {
+                  suspenderMutation.mutate({
+                    userId: selectedUser.id,
+                    motivo: motivoSuspension,
+                  });
+                }
+              }}
+              disabled={suspenderMutation.isPending || !motivoSuspension}
+            >
+              Suspender
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Footer />
     </div>
