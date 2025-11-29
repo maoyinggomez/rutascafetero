@@ -136,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/rutas",
     authenticate,
-    authorizeRole(["admin", "anfitrion"]),
+    authorizeRole(["admin", "anfitrion", "guia"]),
     upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
     async (req, res) => {
       try {
@@ -181,7 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch(
     "/api/rutas/:id",
     authenticate,
-    authorizeRole(["admin", "anfitrion"]),
+    authorizeRole(["admin", "anfitrion", "guia"]),
     upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
     async (req, res) => {
       try {
@@ -200,8 +200,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
 
-        // Verificar permisos - anfitrión solo puede actualizar sus propias rutas
-        if (req.user!.rol === "anfitrion" && rutaActual.anfitrionId !== req.user!.userId) {
+        // Verificar permisos - anfitrión/guía solo pueden actualizar sus propias rutas
+        if ((req.user!.rol === "anfitrion" || req.user!.rol === "guia") && rutaActual.anfitrionId !== req.user!.userId) {
           const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
           if (imagenesSubidas.length > 0) {
             const fs = await import("fs").then(m => m.promises);
@@ -262,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete(
     "/api/rutas/:id",
     authenticate,
-    authorizeRole(["admin", "anfitrion"]),
+    authorizeRole(["admin", "anfitrion", "guia"]),
     async (req, res) => {
       try {
         // Obtener ruta para verificar permisos y obtener imagen
@@ -272,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         // Verificar permisos
-        if (req.user!.rol === "anfitrion" && ruta.anfitrionId !== req.user!.userId) {
+        if ((req.user!.rol === "anfitrion" || req.user!.rol === "guia") && ruta.anfitrionId !== req.user!.userId) {
           return res.status(403).json({ error: "No tienes permisos para eliminar esta ruta" });
         }
 
