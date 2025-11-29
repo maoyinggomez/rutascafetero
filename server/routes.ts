@@ -137,10 +137,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas",
     authenticate,
     authorizeRole(["admin", "anfitrion", "guia"]),
-    upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
+    upload.any(),
     async (req, res) => {
       try {
         // Validar datos básicos
+        console.log("🔵 POST /api/rutas - req.body:", req.body);
+        console.log("🔵 POST /api/rutas - req.files:", req.files ? Object.keys(req.files).map((k:any) => (req.files as any)[k]?.fieldname) : "no files");
+        
         const data = JSON.parse(req.body.data || "{}");
         const validatedData = insertRutaSchema.parse(data);
 
@@ -148,8 +151,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Nota: Las rutas no tienen fecha específica, pero se valida en reservas
         // Esta validación se hace cuando se crean reservas para esa ruta
 
-        // Preparar URLs de imágenes - con .fields(), los archivos están en req.files['imagen']
-        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        // Preparar URLs de imágenes - con .any(), los archivos están en req.files
+        const imagenesSubidas = ((req.files || []) as Express.Multer.File[]).filter(f => f.fieldname === 'imagen');
         const imagenUrls = imagenesSubidas.map(f => `/uploads/${f.filename}`);
         const allImagens = [...imagenUrls, ...(data.imagenes || [])];
         const imagenUrl = allImagens[0] || validatedData.imagenUrl;
@@ -163,8 +166,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.status(201).json(ruta);
       } catch (error: any) {
+        console.error("❌ Error en POST /api/rutas:", error);
         // Limpiar archivos si hay error
-        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        const imagenesSubidas = ((req.files || []) as Express.Multer.File[]).filter(f => f.fieldname === 'imagen');
         if (imagenesSubidas.length > 0) {
           const fs = await import("fs").then(m => m.promises);
           for (const file of imagenesSubidas) {
@@ -182,13 +186,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas/:id",
     authenticate,
     authorizeRole(["admin", "anfitrion", "guia"]),
-    upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
+    upload.any(),
     async (req, res) => {
       try {
         // Obtener ruta actual
         const rutaActual = await storage.getRuta(req.params.id);
         if (!rutaActual) {
-          const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+          const imagenesSubidas = ((req.files || []) as Express.Multer.File[]).filter(f => f.fieldname === 'imagen');
           if (imagenesSubidas.length > 0) {
             const fs = await import("fs").then(m => m.promises);
             for (const file of imagenesSubidas) {
@@ -202,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Verificar permisos - anfitrión/guía solo pueden actualizar sus propias rutas
         if ((req.user!.rol === "anfitrion" || req.user!.rol === "guia") && rutaActual.anfitrionId !== req.user!.userId) {
-          const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+          const imagenesSubidas = ((req.files || []) as Express.Multer.File[]).filter(f => f.fieldname === 'imagen');
           if (imagenesSubidas.length > 0) {
             const fs = await import("fs").then(m => m.promises);
             for (const file of imagenesSubidas) {
@@ -216,7 +220,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Preparar datos para actualizar
         const data = req.body.data ? JSON.parse(req.body.data) : req.body;
-        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        const imagenesSubidas = ((req.files || []) as Express.Multer.File[]).filter(f => f.fieldname === 'imagen');
         
         // Si hay nuevas imágenes, usar las nuevas; sino mantener las anteriores
         if (imagenesSubidas.length > 0) {
