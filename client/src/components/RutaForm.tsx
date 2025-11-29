@@ -324,7 +324,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
                   const totalMinutos = horas * 60 + minutos;
                   setValue("duracionMinutos", totalMinutos);
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="0:5">5 minutos</option>
                 <option value="0:10">10 minutos</option>
@@ -407,7 +407,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
 
             {/* Carrusel de previsualización */}
             {previews.length > 0 && (
-              <Card className="relative bg-gray-100 rounded-lg overflow-hidden">
+              <Card className="relative bg-muted rounded-lg overflow-hidden">
                 <div className="relative h-64 w-full flex items-center justify-center">
                   <img
                     src={previews[currentPreviewIndex]}
@@ -442,14 +442,14 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
                 </div>
 
                 {/* Galería de miniaturas */}
-                <div className="flex gap-2 p-3 bg-white overflow-x-auto">
+                <div className="flex gap-2 p-3 bg-muted overflow-x-auto">
                   {previews.map((preview, idx) => (
                     <div key={idx} className="relative flex-shrink-0">
                       <img
                         src={preview}
                         alt={`Thumb ${idx + 1}`}
                         className={`h-16 w-16 object-cover rounded cursor-pointer border-2 transition ${
-                          currentPreviewIndex === idx ? "border-blue-500" : "border-gray-300 hover:border-blue-300"
+                          currentPreviewIndex === idx ? "border-primary" : "border-border hover:border-primary/50"
                         }`}
                         onClick={() => setCurrentPreviewIndex(idx)}
                       />
@@ -469,11 +469,11 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
             {previews.length < 5 && (
               <div className="flex items-center justify-center">
                 <label className="w-full cursor-pointer">
-                  <div className="flex items-center justify-center gap-2 p-6 border-2 border-dashed rounded hover:bg-gray-50 transition">
+                  <div className="flex items-center justify-center gap-2 p-6 border-2 border-dashed border-border rounded hover:bg-muted transition">
                     <Upload size={20} />
                     <div className="text-center">
                       <span>Clic para agregar más imágenes</span>
-                      <p className="text-xs text-gray-500">({previews.length}/5)</p>
+                      <p className="text-xs text-muted-foreground">({previews.length}/5)</p>
                     </div>
                   </div>
                   <input
@@ -487,7 +487,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
               </div>
             )}
 
-            <p className="text-sm text-gray-500 text-center">
+            <p className="text-sm text-muted-foreground text-center">
               Formatos: JPG, PNG, WebP, GIF | Máximo: 5MB por imagen | Máximo 5 imágenes
             </p>
           </div>

@@ -214,20 +214,26 @@ export default function GuiaPanel() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <div className="flex-1 max-w-7xl mx-auto w-full px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Panel del Guía</h1>
-          <p className="text-gray-600">Gestiona tus experiencias guiadas y reservas</p>
+      <main className="flex-1">
+        <div className="bg-primary/10 py-12 md:py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground mb-2">Panel del Guía</h1>
+              <p className="text-muted-foreground">Gestiona tus experiencias guiadas y reservas</p>
+            </div>
+          </div>
         </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         {/* Estadísticas rápidas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Experiencias</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Experiencias</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{misRutas.length}</div>
@@ -236,7 +242,7 @@ export default function GuiaPanel() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Reservas Totales</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Reservas Totales</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{misReservas.length}</div>
@@ -245,7 +251,7 @@ export default function GuiaPanel() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Ingresos</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Ingresos</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -259,7 +265,7 @@ export default function GuiaPanel() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Calificaciones</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Calificaciones</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold flex items-center gap-1">
@@ -297,9 +303,9 @@ export default function GuiaPanel() {
               </CardHeader>
               <CardContent>
                 {showForm && (
-                  <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="mb-6 p-4 border border-border rounded-lg bg-muted/50">
                     <RutaForm
-                      initialData={editingRuta || undefined}
+                      rutaToEdit={editingRuta || null}
                       onSuccess={() => {
                         setShowForm(false);
                         setEditingRuta(null);
@@ -317,13 +323,13 @@ export default function GuiaPanel() {
                   </div>
                 ) : misRutas.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">No tienes experiencias guiadas aún</p>
+                    <p className="text-muted-foreground">No tienes experiencias guiadas aún</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {misRutas.map((ruta) => (
-                      <div key={ruta.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                        <div className="aspect-video rounded-lg overflow-hidden mb-3 bg-gray-200">
+                      <div key={ruta.id} className="border border-border rounded-lg p-4 hover:shadow-md transition">
+                        <div className="aspect-video rounded-lg overflow-hidden mb-3 bg-muted">
                           <img
                             src={ruta.imagenUrl || "/placeholder.jpg"}
                             alt={ruta.nombre}
@@ -331,7 +337,7 @@ export default function GuiaPanel() {
                           />
                         </div>
                         <h3 className="font-semibold text-lg mb-2">{ruta.nombre}</h3>
-                        <div className="space-y-2 mb-3 text-sm text-gray-600">
+                        <div className="space-y-2 mb-3 text-sm text-muted-foreground">
                           <div className="flex items-center gap-2">
                             <MapPin className="w-4 h-4" />
                             {ruta.destino}
@@ -399,7 +405,7 @@ export default function GuiaPanel() {
                   </div>
                 ) : misReservas.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">No tienes reservas aún</p>
+                    <p className="text-muted-foreground">No tienes reservas aún</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -422,7 +428,7 @@ export default function GuiaPanel() {
                             <TableCell>
                               <div>
                                 <p className="font-medium">{reserva.user?.nombre}</p>
-                                <p className="text-sm text-gray-500">{reserva.user?.email}</p>
+                                <p className="text-sm text-muted-foreground">{reserva.user?.email}</p>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -487,14 +493,14 @@ export default function GuiaPanel() {
               <CardContent>
                 {misCalificaciones.length === 0 ? (
                   <div className="text-center py-8">
-                    <p className="text-gray-500">No tienes calificaciones aún</p>
+                    <p className="text-muted-foreground">No tienes calificaciones aún</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {misCalificaciones.map((cal) => (
                       <div
                         key={cal.id}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50"
+                        className="border border-border rounded-lg p-4 hover:bg-muted/50 transition"
                       >
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex gap-1">
@@ -504,22 +510,22 @@ export default function GuiaPanel() {
                                 className={`w-4 h-4 ${
                                   i < cal.rating
                                     ? "fill-yellow-400 text-yellow-400"
-                                    : "text-gray-300"
+                                    : "text-muted"
                                 }`}
                               />
                             ))}
                           </div>
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-muted-foreground">
                             {format(new Date(cal.createdAt), "dd MMM yyyy", {
                               locale: es,
                             })}
                           </span>
                         </div>
-                        <p className="text-gray-700">
+                        <p className="text-foreground">
                           <strong>Experiencia:</strong> {misRutas.find((r) => r.id === cal.rutaId)?.nombre}
                         </p>
                         {cal.comentario && (
-                          <p className="text-gray-600 mt-2 italic">"{cal.comentario}"</p>
+                          <p className="text-muted-foreground mt-2 italic">"{cal.comentario}"</p>
                         )}
                       </div>
                     ))}
@@ -529,30 +535,31 @@ export default function GuiaPanel() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+        </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={!!deleteConfirmation} onOpenChange={() => setDeleteConfirmation(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Eliminar Experiencia</DialogTitle>
-            <DialogDescription>
-              ¿Estás seguro de que deseas eliminar esta experiencia? Esta acción no se puede deshacer.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmation(null)}>
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => deleteConfirmation && handleDeleteRuta(deleteConfirmation)}
-            >
-              Eliminar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteConfirmation} onOpenChange={() => setDeleteConfirmation(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Eliminar Experiencia</DialogTitle>
+              <DialogDescription>
+                ¿Estás seguro de que deseas eliminar esta experiencia? Esta acción no se puede deshacer.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDeleteConfirmation(null)}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => deleteConfirmation && handleDeleteRuta(deleteConfirmation)}
+              >
+                Eliminar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </main>
 
       <Footer />
     </div>
