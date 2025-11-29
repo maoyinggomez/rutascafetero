@@ -41,6 +41,10 @@ export interface IStorage {
   updateRuta(id: string, ruta: Partial<InsertRuta>): Promise<Ruta | undefined>;
   deleteRuta(id: string): Promise<boolean>;
 
+  // RN-13: Validar integridad de datos
+  puedeEliminarse(rutaId: string): Promise<boolean>;
+  ocultarRutasDeAnfitrion(anfitrionId: string): Promise<void>;
+
   // Reservas
   getReserva(id: string): Promise<Reserva | undefined>;
   getReservasByUser(userId: string): Promise<Reserva[]>;
@@ -352,7 +356,8 @@ export class PostgresStorage implements IStorage {
 
   async cancelarReserva(
     id: string,
-    user: JWTPayload
+    user: JWTPayload,
+    motivo?: string
   ): Promise<Reserva | undefined> {
     // Validar que el usuario no esté suspendido (RN-11)
     const usuarioActual = await this.getUser(user.userId);
@@ -387,7 +392,7 @@ export class PostgresStorage implements IStorage {
         throw new Error("No puedes cancelar una reserva cuya fecha ya pasó");
       }
 
-      // RN-07: Anfitriones/guías pueden cancelar con motivo, pero turistas sin restricción de motivo
+      // RN-07: Turista no requiere motivo
     } else if (user.rol === "anfitrion" || user.rol === "guia") {
       // Verificar que sea su ruta
       if (user.rol === "anfitrion") {
@@ -399,6 +404,11 @@ export class PostgresStorage implements IStorage {
       // RN-07: Anfitrión/guía solo pueden cancelar si no está cerrada o en progreso
       if (reserva.estado === "cerrada") {
         throw new Error("No puedes cancelar una reserva cerrada");
+      }
+      
+      // RN-07: Anfitrión/guía debe proporcionar causa justificada
+      if (!motivo || motivo.trim().length === 0) {
+        throw new Error("Debes proporcionar una causa justificada para cancelar esta reserva");
       }
     }
 
@@ -448,6 +458,28 @@ export class PostgresStorage implements IStorage {
       .where(eq(rutas.id, rutaId))
       .returning();
     return result[0];
+  }
+
+  // RN-13: Validar que ruta puede eliminarse (sin reservas activas)
+  async puedeEliminarse(rutaId: string): Promise<boolean> {
+    const reservasActivas = await db.select().from(reservas).where(
+      and(
+        eq(reservas.rutaId, rutaId),
+        or(
+          eq(reservas.estado, "pendiente"),
+          eq(reservas.estado, "confirmada")
+        )
+      )
+    );
+    return reservasActivas.length === 0;
+  }
+
+  // RN-13: Si anfitrión elimina cuenta, ocultar sus rutas automáticamente
+  async ocultarRutasDeAnfitrion(anfitrionId: string): Promise<void> {
+    await db
+      .update(rutas)
+      .set({ estado: "OCULTA" })
+      .where(eq(rutas.anfitrionId, anfitrionId));
   }
 
   // RN-12: Notificaciones - Crear

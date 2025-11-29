@@ -144,6 +144,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const data = JSON.parse(req.body.data || "{}");
         const validatedData = insertRutaSchema.parse(data);
 
+        // RN-08: No permitir rutas con fecha pasada
+        // Nota: Las rutas no tienen fecha específica, pero se valida en reservas
+        // Esta validación se hace cuando se crean reservas para esa ruta
+
         // Preparar URLs de imágenes - con .fields(), los archivos están en req.files['imagen']
         const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
         const imagenUrls = imagenesSubidas.map(f => `/uploads/${f.filename}`);
@@ -503,10 +507,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // DELETE para cancelar reserva (solo turistas, solo si está pendiente)
+  // DELETE para cancelar reserva (turista sin motivo, anfitrión/guía con motivo - RN-07)
   app.delete("/api/reservas/:id", authenticate, async (req, res) => {
     try {
       console.log("🔵 DELETE /api/reservas/:id - ID:", req.params.id);
+      console.log("🔵 Usuario:", req.user);
+      console.log("🔵 Body:", req.body);
+      
       const reserva = await storage.getReserva(req.params.id);
       console.log("🔵 Reserva encontrada:", reserva);
       
@@ -514,29 +521,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "Reserva no encontrada" });
       }
 
-      // Verificar que la reserva pertenece al usuario
-      if (reserva.userId !== req.user!.userId) {
-        return res.status(403).json({ error: "No tienes permisos para cancelar esta reserva" });
-      }
-
-      // Verificar que la reserva está pendiente
-      if (reserva.estado !== "pendiente") {
-        return res.status(400).json({ 
-          error: "Solo puedes cancelar reservas que están en estado pendiente" 
-        });
-      }
-
-      // Cambiar estado a cancelada directamente (sin verificar roles)
-      const reservaCancelada = await storage.updateReservaEstado(
-        req.params.id, 
-        "cancelada"
+      // RN-07: Usar método mejorado que valida motivo para anfitrión/guía
+      const motivo = req.body?.motivo;
+      const reservaCancelada = await storage.cancelarReserva(
+        req.params.id,
+        req.user!,
+        motivo
       );
+      
       console.log("🔵 Reserva cancelada:", reservaCancelada);
 
       return res.json(reservaCancelada);
     } catch (error: any) {
       console.error("🔴 Error al cancelar reserva:", error);
-      return res.status(500).json({ 
+      return res.status(error.message.includes("permisos") ? 403 : 400).json({ 
         error: error.message || "Error al cancelar reserva" 
       });
     }
