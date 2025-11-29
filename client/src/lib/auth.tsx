@@ -18,6 +18,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
   isAnfitrion: boolean;
+  isGuia: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -143,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isAdmin: user?.rol === "admin",
         isAnfitrion: user?.rol === "anfitrion",
+        isGuia: user?.rol === "guia",
       }}
     >
       {children}
