@@ -56,7 +56,6 @@ export default function FeaturedRoutes() {
               imagen={ruta.imagenUrl}
               precio={ruta.precioPorPersona}
               duracion={ruta.duracion}
-              dificultad={ruta.dificultad}
               rating={parseFloat(ruta.rating)}
               resenas={ruta.resenas}
             />

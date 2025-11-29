@@ -94,10 +94,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rutas Routes
   app.get("/api/rutas", async (req, res) => {
     try {
-      const { destino, dificultad, precioMax, q, tag } = req.query;
+      const { destino, precioMax, q, tag } = req.query;
       const rutas = await storage.getAllRutas({
         destino: destino as string,
-        dificultad: dificultad as string,
         precioMax: precioMax ? parseInt(precioMax as string) : undefined,
         q: q as string,
         tag: tag as string,
@@ -124,15 +123,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
-    upload.array("imagen", 5),
+    upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
     async (req, res) => {
       try {
         // Validar datos básicos
         const data = JSON.parse(req.body.data || "{}");
         const validatedData = insertRutaSchema.parse(data);
 
-        // Preparar URLs de imágenes
-        const imagenUrls = req.files?.map(f => `/uploads/${f.filename}`) || [];
+        // Preparar URLs de imágenes - con .fields(), los archivos están en req.files['imagen']
+        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        const imagenUrls = imagenesSubidas.map(f => `/uploads/${f.filename}`);
         const allImagens = [...imagenUrls, ...(data.imagenes || [])];
         const imagenUrl = allImagens[0] || validatedData.imagenUrl;
 
@@ -146,9 +146,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(201).json(ruta);
       } catch (error: any) {
         // Limpiar archivos si hay error
-        if (req.files) {
+        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        if (imagenesSubidas.length > 0) {
           const fs = await import("fs").then(m => m.promises);
-          for (const file of req.files) {
+          for (const file of imagenesSubidas) {
             try {
               await fs.unlink(file.path);
             } catch {}
@@ -163,15 +164,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas/:id",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
-    upload.array("imagen", 5),
+    upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
     async (req, res) => {
       try {
         // Obtener ruta actual
         const rutaActual = await storage.getRuta(req.params.id);
         if (!rutaActual) {
-          if (req.files) {
+          const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+          if (imagenesSubidas.length > 0) {
             const fs = await import("fs").then(m => m.promises);
-            for (const file of req.files) {
+            for (const file of imagenesSubidas) {
               try {
                 await fs.unlink(file.path);
               } catch {}
@@ -182,9 +184,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Verificar permisos - anfitrión solo puede actualizar sus propias rutas
         if (req.user!.rol === "anfitrion" && rutaActual.anfitrionId !== req.user!.userId) {
-          if (req.files) {
+          const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+          if (imagenesSubidas.length > 0) {
             const fs = await import("fs").then(m => m.promises);
-            for (const file of req.files) {
+            for (const file of imagenesSubidas) {
               try {
                 await fs.unlink(file.path);
               } catch {}
@@ -195,10 +198,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Preparar datos para actualizar
         const data = req.body.data ? JSON.parse(req.body.data) : req.body;
+        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
         
         // Si hay nuevas imágenes, usar las nuevas; sino mantener las anteriores
-        if (req.files && req.files.length > 0) {
-          const newImageUrls = req.files.map(f => `/uploads/${f.filename}`);
+        if (imagenesSubidas.length > 0) {
+          const newImageUrls = imagenesSubidas.map(f => `/uploads/${f.filename}`);
           const existingImages = data.imagenes?.filter((img: string) => !img.startsWith('blob:') && !img.startsWith('data:')) || [];
           data.imagenes = [...newImageUrls, ...existingImages];
           data.imagenUrl = data.imagenes[0];
@@ -521,9 +525,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const calificacion = await storage.getCalificacionPorReserva(req.params.reservaId);
-      res.json(calificacion || null);
+      // Retornar calificación si existe, o null si no existe
+      return res.json(calificacion || null);
     } catch (error: any) {
-      res.status(400).json({ error: error.message || "Error al obtener calificación" });
+      console.error("Error en GET /api/calificaciones/reserva:", error);
+      res.status(500).json({ error: error.message || "Error al obtener calificación" });
     }
   });
 

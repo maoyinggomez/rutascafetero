@@ -146,18 +146,32 @@ export default function Reservas() {
 
   const openRatingModal = async (reserva: Reserva) => {
     try {
-      // Verificar si ya existe calificación
-      const existing = await apiRequest(
-        "GET",
-        `/api/calificaciones/reserva/${reserva.id}`
-      );
-
-      if (existing) {
+      // Verificar si la experiencia ya terminó
+      if (!isReservationEnded(reserva)) {
         toast({
-          title: "Ya calificaste",
-          description: "Ya has calificado esta experiencia",
+          title: "Experiencia no terminada",
+          description: "Solo puedes calificar después de que termine la experiencia",
         });
         return;
+      }
+
+      // Verificar si ya existe calificación
+      try {
+        const existing = await apiRequest(
+          "GET",
+          `/api/calificaciones/reserva/${reserva.id}`
+        );
+
+        if (existing) {
+          toast({
+            title: "Ya calificaste",
+            description: "Ya has calificado esta experiencia",
+          });
+          return;
+        }
+      } catch (error) {
+        // Si el endpoint falla, continuamos (podría ser un error temporal)
+        console.error("Error verificando calificación anterior:", error);
       }
 
       // Obtener info de la ruta

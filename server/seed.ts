@@ -65,9 +65,8 @@ async function seed() {
           descripcion:
             "Explora el emblemático Valle del Cocora, hogar de las palmas de cera más altas del mundo. Una experiencia inolvidable rodeado de naturaleza exuberante y paisajes montañosos.",
           destino: "Salento",
-          dificultad: "Moderado",
           duracion: "6-8 horas",
-          duracionHoras: 7,
+          duracionMinutos: 420,
           precio: 120000,
           precioPorPersona: 120000,
           imagenUrl:
@@ -89,9 +88,8 @@ async function seed() {
           descripcion:
             "Descubre la arquitectura colonial y la cultura cafetera en uno de los pueblos más coloridos del Eje Cafetero. Incluye visita a miradores y degustación de café.",
           destino: "Filandia",
-          dificultad: "Fácil",
           duracion: "4-5 horas",
-          duracionHoras: 4,
+          duracionMinutos: 240,
           precio: 80000,
           precioPorPersona: 80000,
           imagenUrl:
@@ -113,9 +111,8 @@ async function seed() {
           descripcion:
             "Aventura extrema al volcán Nevado del Ruiz. Incluye transporte, equipo especializado y guía experto. Para aventureros experimentados.",
           destino: "Manizales",
-          dificultad: "Avanzado",
           duracion: "10-12 horas",
-          duracionHoras: 11,
+          duracionMinutos: 660,
           precio: 350000,
           precioPorPersona: 350000,
           imagenUrl:
@@ -137,9 +134,8 @@ async function seed() {
           descripcion:
             "Día completo en el Parque Nacional del Café. Disfruta de atracciones mecánicas, shows culturales y aprendizaje sobre el proceso del café.",
           destino: "Montenegro",
-          dificultad: "Fácil",
           duracion: "8 horas",
-          duracionHoras: 8,
+          duracionMinutos: 480,
           precio: 95000,
           precioPorPersona: 95000,
           imagenUrl:
@@ -161,9 +157,8 @@ async function seed() {
           descripcion:
             "Relájate en las aguas termales naturales de Santa Rosa de Cabal. Incluye caminata ecológica, baños termales y almuerzo típico.",
           destino: "Pereira",
-          dificultad: "Fácil",
           duracion: "6 horas",
-          duracionHoras: 6,
+          duracionMinutos: 360,
           precio: 110000,
           precioPorPersona: 110000,
           imagenUrl:
@@ -185,9 +180,8 @@ async function seed() {
           descripcion:
             "Experiencia completa en una finca cafetera tradicional. Aprende todo el proceso del café desde la siembra hasta la taza. Incluye almuerzo campesino.",
           destino: "Sevilla",
-          dificultad: "Fácil",
           duracion: "5 horas",
-          duracionHoras: 5,
+          duracionMinutos: 300,
           precio: 85000,
           precioPorPersona: 85000,
           imagenUrl:

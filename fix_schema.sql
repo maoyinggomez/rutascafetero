@@ -1,5 +1,7 @@
+-- Eliminar columna dificultad de la tabla rutas
+ALTER TABLE rutas DROP COLUMN IF EXISTS dificultad;
+
 -- Agregar columnas faltantes a la tabla rutas
-ALTER TABLE rutas ADD COLUMN IF NOT EXISTS dificultad dificultad DEFAULT 'Fácil';
 ALTER TABLE rutas ADD COLUMN IF NOT EXISTS duracion_horas integer DEFAULT 1;
 ALTER TABLE rutas ADD COLUMN IF NOT EXISTS precio_por_persona integer DEFAULT 0;
 ALTER TABLE rutas ADD COLUMN IF NOT EXISTS tags text[];

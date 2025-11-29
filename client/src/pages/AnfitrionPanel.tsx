@@ -39,9 +39,8 @@ interface Ruta {
   destino: string;
   precio: number;
   precioPorPersona: number;
-  dificultad: string;
   duracion: string;
-  duracionHoras: number;
+  duracionMinutos: number;
   cupoMaximo: number;
   resenas: number;
   rating: string;
@@ -397,14 +396,14 @@ export default function AnfitrionPanel() {
                             </div>
                             <div className="flex gap-4 text-sm">
                               <div>
-                                <Badge variant="secondary">{ruta.dificultad}</Badge>
+
                               </div>
                               <div>
                                 <span className="font-medium">${ruta.precioPorPersona.toLocaleString()}</span>
                                 <span className="text-muted-foreground"> por persona</span>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">{ruta.duracionHoras}h</span>
+                                <span className="text-muted-foreground">{Math.floor(ruta.duracionMinutos / 60)}h {ruta.duracionMinutos % 60}min</span>
                               </div>
                               <div>
                                 <Badge variant={ruta.disponible ? "default" : "secondary"}>

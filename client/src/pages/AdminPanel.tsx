@@ -172,7 +172,7 @@ export default function AdminPanel() {
                         <TableRow>
                           <TableHead>Nombre</TableHead>
                           <TableHead>Destino</TableHead>
-                          <TableHead>Dificultad</TableHead>
+
                           <TableHead>Precio</TableHead>
                           <TableHead>Rating</TableHead>
                         </TableRow>
@@ -183,7 +183,6 @@ export default function AdminPanel() {
                             <TableCell className="font-medium">{ruta.nombre}</TableCell>
                             <TableCell>{ruta.destino}</TableCell>
                             <TableCell>
-                              <Badge variant="secondary">{ruta.dificultad}</Badge>
                             </TableCell>
                             <TableCell>${ruta.precio.toLocaleString()}</TableCell>
                             <TableCell>{ruta.rating} ({ruta.resenas})</TableCell>

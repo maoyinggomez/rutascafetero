@@ -4,7 +4,6 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 export const roleEnum = pgEnum("role", ["turista", "anfitrion", "guia", "admin"]);
-export const dificultadEnum = pgEnum("dificultad", ["Fácil", "Moderado", "Avanzado"]);
 export const estadoReservaEnum = pgEnum("estado_reserva", ["pendiente", "confirmada", "cancelada"]);
 
 export const users = pgTable("users", {
@@ -20,7 +19,6 @@ export const rutas = pgTable("rutas", {
   nombre: text("nombre").notNull(),
   descripcion: text("descripcion").notNull(),
   destino: text("destino").notNull(),
-  dificultad: dificultadEnum("dificultad").notNull(),
   duracion: text("duracion").notNull(),
   precio: integer("precio").notNull(),
   imagenUrl: text("imagen_url"),
@@ -29,7 +27,7 @@ export const rutas = pgTable("rutas", {
   rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("4.5"),
   resenas: integer("resenas").notNull().default(0),
   anfitrionId: varchar("anfitrion_id").references(() => users.id),
-  duracionHoras: integer("duracion_horas").notNull(),
+  duracionMinutos: integer("duracion_minutos").notNull(),
   precioPorPersona: integer("precio_por_persona").notNull(),
   tags: text("tags").array(),
   puntosInteres: text("puntos_interes").array(),
@@ -52,7 +50,7 @@ export const reservas = pgTable("reservas", {
 export const calificaciones = pgTable("calificaciones", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   reservaId: varchar("reserva_id").notNull().references(() => reservas.id),
-  userId: varchar("user_id").notNull().references(() => users.id),
+  userId: varchar("user_id").references(() => users.id),
   rutaId: varchar("ruta_id").notNull().references(() => rutas.id),
   rating: integer("rating").notNull(),
   comentario: text("comentario"),
@@ -77,6 +75,7 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
   imagenUrl: z.string().optional(),
   imagenes: z.array(z.string()).optional().default([]),
   anfitrionId: z.string().optional(),
+  duracionMinutos: z.number().int().min(5, "La duración mínima es 5 minutos"),
 });
 
 export const insertReservaSchema = createInsertSchema(reservas).omit({
@@ -92,6 +91,7 @@ export const insertReservaSchema = createInsertSchema(reservas).omit({
 export const insertCalificacionSchema = createInsertSchema(calificaciones).omit({
   id: true,
   createdAt: true,
+  userId: true,
 }).extend({
   rating: z.number().min(1).max(5),
   comentario: z.string().optional(),

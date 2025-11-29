@@ -42,9 +42,7 @@ export default function CardRuta({
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
         <div className="absolute top-3 right-3 flex gap-2">
-          <Badge className={`${dificultadColors[dificultad]} border`} data-testid={`badge-difficulty-${id}`}>
-            {dificultad}
-          </Badge>
+
         </div>
       </div>
 

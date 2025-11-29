@@ -22,8 +22,8 @@ interface Ruta {
   nombre: string;
   descripcion: string;
   destino: string;
-  dificultad: string;
   duracion: string;
+  duracionMinutos: number;
   precio: number;
   imagenUrl: string;
   imagenes?: string[];
@@ -118,9 +118,9 @@ const handleReservar = (e: React.FormEvent) => {
   const [horas, minutos] = horaInicio.split(":").map(Number);
   fechaDate.setHours(horas, minutos, 0, 0);
 
-  // Calcular hora de fin basada en duracionHoras
+  // Calcular hora de fin basada en duracionMinutos
   const horaFinDate = new Date(fechaDate);
-  horaFinDate.setHours(horaFinDate.getHours() + ruta.duracionHoras);
+  horaFinDate.setMinutes(horaFinDate.getMinutes() + ruta.duracionMinutos);
   const horaFin = horaFinDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 
   reservaMutation.mutate({
@@ -297,11 +297,12 @@ const handleReservar = (e: React.FormEvent) => {
                       />
                       {ruta && (
                         <p className="text-xs text-muted-foreground">
-                          Duración: {ruta.duracionHoras}h • Hora de fin aproximada: {
+                          Duración: {Math.floor(ruta.duracionMinutos / 60)}h {ruta.duracionMinutos % 60}min • Hora de fin aproximada: {
                             (() => {
                               const [h, m] = horaInicio.split(":").map(Number);
                               const finDate = new Date();
-                              finDate.setHours(h + ruta.duracionHoras, m, 0);
+                              finDate.setMinutes(m + ruta.duracionMinutos);
+                              finDate.setHours(h);
                               return finDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
                             })()
                           }

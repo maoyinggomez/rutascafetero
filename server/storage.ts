@@ -25,7 +25,6 @@ export interface IStorage {
   // Rutas
   getAllRutas(filters?: { 
     destino?: string; 
-    dificultad?: string;
     precioMax?: number;
     q?: string;
     tag?: string;
@@ -78,7 +77,6 @@ export class PostgresStorage implements IStorage {
   // Rutas
   async getAllRutas(filters?: {
     destino?: string;
-    dificultad?: string;
     precioMax?: number;
     q?: string;
     tag?: string;
@@ -87,10 +85,6 @@ export class PostgresStorage implements IStorage {
 
     if (filters?.destino && filters.destino !== "todos") {
       conditions.push(eq(rutas.destino, filters.destino));
-    }
-
-    if (filters?.dificultad && filters.dificultad !== "todas") {
-      conditions.push(eq(rutas.dificultad, filters.dificultad as any));
     }
 
     if (filters?.precioMax) {

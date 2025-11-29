@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,8 +22,7 @@ const rutaSchema = z.object({
   descripcion: z.string().min(10, "Mínimo 10 caracteres"),
   destino: z.string().min(2, "Ingresa un destino"),
   duracion: z.string().min(1, "Ingresa la duración"),
-  duracionHoras: z.coerce.number().min(0.083, "La duración mínima es de 5 minutos"),
-  duracionMinutos: z.coerce.number().min(0).max(59),
+  duracionMinutos: z.coerce.number().int().min(5, "Mínimo 5 minutos"),
   precio: z.coerce.number().min(1),
   precioPorPersona: z.coerce.number().min(1),
   cupoMaximo: z.coerce.number().min(1),
@@ -39,9 +38,8 @@ interface Ruta {
   nombre: string;
   descripcion: string;
   destino: string;
-  dificultad?: string;
   duracion: string;
-  duracionHoras: number;
+  duracionMinutos: number;
   precio: number;
   precioPorPersona: number;
   cupoMaximo: number;
@@ -63,8 +61,15 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentPreviewIndex, setCurrentPreviewIndex] = useState(0);
-  const [duracionHoras, setDuracionHoras] = useState(0);
-  const [duracionMinutos, setDuracionMinutos] = useState(5);
+  
+  // Calcular horas y minutos desde duracionMinutos si estamos editando
+  const [duracionHoras, setDuracionHoras] = useState(
+    rutaToEdit ? Math.floor(rutaToEdit.duracionMinutos / 60) : 0
+  );
+  const [duracionMinutos, setDuracionMinutos] = useState(
+    rutaToEdit ? rutaToEdit.duracionMinutos % 60 : 5
+  );
+  
   const { toast } = useToast();
 
   const isEditing = !!rutaToEdit;
@@ -76,8 +81,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       descripcion: rutaToEdit.descripcion,
       destino: rutaToEdit.destino,
       duracion: rutaToEdit.duracion,
-      duracionHoras: rutaToEdit.duracionHoras,
-      duracionMinutos: 0,
+      duracionMinutos: rutaToEdit.duracionMinutos,
       precio: rutaToEdit.precio,
       precioPorPersona: rutaToEdit.precioPorPersona,
       cupoMaximo: rutaToEdit.cupoMaximo,
@@ -85,11 +89,21 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       puntosInteres: rutaToEdit.puntosInteres?.join(", ") || "",
       imagenUrl: rutaToEdit.imagenUrl || "",
     } : {
-      duracionHoras: 0,
       duracionMinutos: 5,
       cupoMaximo: 20,
     },
   });
+
+  // Sincronizar el valor calculado del formulario cuando cambian horas o minutos locales
+  const handleDuracionChange = () => {
+    const totalMinutos = duracionHoras * 60 + duracionMinutos;
+    setValue("duracionMinutos", totalMinutos);
+  };
+
+  // Efecto para sincronizar cuando cambian las horas o minutos
+  useEffect(() => {
+    handleDuracionChange();
+  }, [duracionHoras, duracionMinutos, setValue]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -163,8 +177,8 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       };
 
       formData.append("data", JSON.stringify(rutaData));
-      selectedFiles.forEach((file, idx) => {
-        formData.append(`imagen_${idx}`, file);
+      selectedFiles.forEach((file) => {
+        formData.append("imagen", file);
       });
 
       const token = localStorage.getItem("auth_token");
@@ -193,6 +207,8 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
       setPreviews([]);
       setSelectedFiles([]);
       setCurrentPreviewIndex(0);
+      setDuracionHoras(0);
+      setDuracionMinutos(5);
       onSuccess?.();
       onOpenChange?.(false);
     } catch (error: any) {
@@ -273,48 +289,36 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
             <h3 className="font-semibold">Duración y Precio</h3>
             
             <div className="space-y-3">
-              <Label>Duración</Label>
-              <div className="grid grid-cols-4 gap-2">
-                <div>
-                  <Label className="text-xs text-muted-foreground">Horas</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="23"
-                    {...register("duracionHoras")}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setDuracionHoras(val);
-                      const totalHoras = val + (duracionMinutos / 60);
-                      setValue("duracionHoras", totalHoras);
-                    }}
-                  />
-                </div>
-                <div className="flex items-end pb-2">
-                  <span className="text-sm">h</span>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">Minutos</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="59"
-                    step="5"
-                    {...register("duracionMinutos")}
-                    onChange={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      setDuracionMinutos(val);
-                      const totalHoras = duracionHoras + (val / 60);
-                      setValue("duracionHoras", totalHoras);
-                    }}
-                  />
-                </div>
-                <div className="flex items-end pb-2">
-                  <span className="text-sm">min</span>
-                </div>
-              </div>
+              <Label>Duración Mínima</Label>
+              <select
+                value={`${duracionHoras}:${duracionMinutos}`}
+                onChange={(e) => {
+                  const [horas, minutos] = e.target.value.split(":").map(Number);
+                  setDuracionHoras(horas);
+                  setDuracionMinutos(minutos);
+                  const totalMinutos = horas * 60 + minutos;
+                  setValue("duracionMinutos", totalMinutos);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="0:5">5 minutos</option>
+                <option value="0:10">10 minutos</option>
+                <option value="0:15">15 minutos</option>
+                <option value="0:30">30 minutos</option>
+                <option value="1:0">1 hora</option>
+                <option value="1:30">1 hora 30 minutos</option>
+                <option value="2:0">2 horas</option>
+                <option value="2:30">2 horas 30 minutos</option>
+                <option value="3:0">3 horas</option>
+                <option value="4:0">4 horas</option>
+                <option value="5:0">5 horas</option>
+                <option value="6:0">6 horas</option>
+                <option value="8:0">8 horas</option>
+                <option value="10:0">10 horas</option>
+                <option value="12:0">12 horas</option>
+              </select>
               <p className="text-xs text-muted-foreground">
-                Total: {(duracionHoras + (duracionMinutos / 60)).toFixed(2)}h ({Math.floor(duracionHoras)}h {duracionMinutos}min)
+                Seleccionado: {duracionHoras}h {duracionMinutos}min ({duracionHoras * 60 + duracionMinutos} minutos)
               </p>
             </div>
 
