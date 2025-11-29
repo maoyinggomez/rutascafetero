@@ -625,47 +625,6 @@ export class PostgresStorage implements IStorage {
   }
 
   // RN-06: Calificaciones - Crear
-  async crearCalificacion(
-    reservaId: string,
-    usuarioId: string,
-    puntuacion: number,
-    comentario?: string
-  ): Promise<Calificacion> {
-    if (puntuacion < 1 || puntuacion > 5) {
-      throw new Error("La puntuación debe estar entre 1 y 5");
-    }
-
-    const result = await db
-      .insert(calificaciones)
-      .values({
-        reservaId,
-        usuarioId,
-        puntuacion,
-        comentario,
-      })
-      .returning();
-    return result[0];
-  }
-
-  // RN-06: Calificaciones - Obtener de ruta
-  async obtenerCalificacionesDeRuta(rutaId: string): Promise<Calificacion[]> {
-    return db
-      .select()
-      .from(calificaciones)
-      .innerJoin(reservas, eq(calificaciones.reservaId, reservas.id))
-      .where(eq(reservas.rutaId, rutaId));
-  }
-
-  // RN-14: Validación de roles
-  async validarRolUsuario(userId: string): Promise<User | undefined> {
-    const result = await db
-      .update(users)
-      .set({ rolValidado: true })
-      .where(eq(users.id, userId))
-      .returning();
-    return result[0];
-  }
-
   async createCalificacion(calificacion: InsertCalificacion & { userId: string }): Promise<Calificacion> {
     const result = await db
       .insert(calificaciones)
@@ -712,6 +671,16 @@ export class PostgresStorage implements IStorage {
         resenas: rutaCalificaciones.length,
       })
       .where(eq(rutas.id, rutaId));
+  }
+
+  // RN-14: Validación de roles
+  async validarRolUsuario(userId: string): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ rolValidado: true })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
   }
 
   // ADMIN METHODS
