@@ -128,8 +128,12 @@ export default function GuiaPanel() {
 
   const handleDeleteRuta = async (rutaId: string) => {
     try {
+      const token = localStorage.getItem("auth_token");
       const response = await fetch(`/api/rutas/${rutaId}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
       });
 
       if (!response.ok) throw new Error("Error al eliminar ruta");
