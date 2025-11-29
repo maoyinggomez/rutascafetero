@@ -325,6 +325,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.json(reservas);
         }
         
+        // Si es guía, obtiene todas las reservas
+        if (req.user!.rol === "guia") {
+          const reservas = await storage.getAllReservas();
+          console.log("🔵 Guía - Total reservas:", reservas.length);
+          return res.json(reservas);
+        }
+        
         // Si es anfitrión, obtiene solo las reservas de sus rutas
         if (req.user!.rol === "anfitrion") {
           const rutasDelAnfitrion = await storage.getAllRutas({});
@@ -442,7 +449,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put(
     "/api/reservas/:id/estado",
     authenticate,
-    authorizeRole(["anfitrion", "admin"]),
+    authorizeRole(["anfitrion", "admin", "guia"]),
     async (req, res) => {
       try {
         const { estado } = req.body;
@@ -471,7 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch(
     "/api/reservas/:id",
     authenticate,
-    authorizeRole(["anfitrion", "admin"]),
+    authorizeRole(["anfitrion", "admin", "guia"]),
     async (req, res) => {
       try {
         const { estado } = req.body;

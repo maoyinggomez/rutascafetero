@@ -12,6 +12,7 @@ import RutaDetalle from "@/pages/RutaDetalle";
 import Reservas from "@/pages/Reservas";
 import AdminPanel from "@/pages/AdminPanel";
 import AnfitrionPanel from "@/pages/AnfitrionPanel";
+import GuiaPanel from "@/pages/GuiaPanel";
 import Debug from "@/pages/Debug";
 import NotFound from "@/pages/not-found";
 
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/reservas" component={Reservas} />
       <Route path="/admin" component={AdminPanel} />
       <Route path="/anfitrion" component={AnfitrionPanel} />
+      <Route path="/guia" component={GuiaPanel} />
       <Route path="/debug" component={Debug} />
       <Route component={NotFound} />
     </Switch>

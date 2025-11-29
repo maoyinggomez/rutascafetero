@@ -110,11 +110,14 @@ export const insertReservaSchema = z.object({
       return !isNaN(date.getTime());
     }, "Fecha inválida")
     .refine(val => {
-      // Validar que no sea una fecha pasada
+      // Validar que no sea una fecha pasada (permite hoy)
       const date = typeof val === 'string' ? new Date(val) : val;
       const now = new Date();
-      return date > now;
-    }, "No se permiten fechas pasadas o del presente")
+      // Comparar solo fechas (ignorar horas)
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const reservaDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      return reservaDate >= today;
+    }, "No se permiten fechas pasadas")
     .transform(val => {
       // Convertir string a Date si es necesario
       if (typeof val === 'string') {
