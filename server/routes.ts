@@ -121,12 +121,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      console.log("🔍 GET /api/rutas - Usuario:", user ? `${user.rol}(${user.userId})` : "No autenticado");
+      
       const rutas = await storage.getAllRutas({
         destino: destino as string,
         precioMax: precioMax ? parseInt(precioMax as string) : undefined,
         q: q as string,
         tag: tag as string,
       }, user); // Pasar el usuario para filtrar por estado
+      
+      console.log("🔍 GET /api/rutas - Rutas retornadas:", rutas.length, "- Estados:", rutas.map((r: any) => r.estado).join(", "));
       res.json(rutas);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Error al obtener rutas" });

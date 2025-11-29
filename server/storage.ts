@@ -35,7 +35,7 @@ export interface IStorage {
     precioMax?: number;
     q?: string;
     tag?: string;
-  }): Promise<Ruta[]>;
+  }, user?: JWTPayload): Promise<Ruta[]>;
   getRuta(id: string): Promise<Ruta | undefined>;
   createRuta(ruta: InsertRuta): Promise<Ruta>;
   updateRuta(id: string, ruta: Partial<InsertRuta>): Promise<Ruta | undefined>;
@@ -120,9 +120,11 @@ export class PostgresStorage implements IStorage {
     // RN-16: Filtrar por estado según rol
     if (!user || user.rol === "turista") {
       // Los turistas solo ven rutas PUBLICADAS
+      console.log("🔍 getAllRutas - Filtrando como Turista/No autenticado - Solo PUBLICADAS");
       conditions.push(eq(rutas.estado, "PUBLICADA"));
     } else if (user.rol === "anfitrion" || user.rol === "guia") {
       // Los anfitriones y guías ven sus rutas en cualquier estado y otras PUBLICADAS
+      console.log(`🔍 getAllRutas - Filtrando como ${user.rol} (${user.userId}) - PUBLICADAS + Propias`);
       conditions.push(
         or(
           eq(rutas.estado, "PUBLICADA"),
@@ -131,6 +133,9 @@ export class PostgresStorage implements IStorage {
       );
     }
     // Los admins ven todas las rutas
+    if (user?.rol === "admin") {
+      console.log("🔍 getAllRutas - Admin - Sin filtro de estado");
+    }
 
     if (filters?.destino && filters.destino !== "todos") {
       conditions.push(eq(rutas.destino, filters.destino));
@@ -160,7 +165,9 @@ export class PostgresStorage implements IStorage {
       query = query.where(and(...conditions)) as any;
     }
 
-    return query;
+    const result = await query;
+    console.log("🔍 getAllRutas - Resultado:", result.length, "rutas con estados:", result.map(r => r.estado).join(", "));
+    return result;
   }
 
   async getRuta(id: string): Promise<Ruta | undefined> {
