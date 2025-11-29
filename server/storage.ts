@@ -269,6 +269,25 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async changiarEstadoReserva(
+    id: string,
+    estado: "pendiente" | "confirmada" | "cancelada",
+    user: JWTPayload
+  ): Promise<Reserva | undefined> {
+    // Verificar que el usuario no esté suspendido (RN-11)
+    const usuarioActual = await this.getUser(user.userId);
+    if (usuarioActual?.suspendido) {
+      throw new Error("Tu cuenta ha sido suspendida y no puedes realizar acciones");
+    }
+
+    const result = await db
+      .update(reservas)
+      .set({ estado })
+      .where(eq(reservas.id, id))
+      .returning();
+    return result[0];
+  }
+
   async getReservasPorRuta(rutaId: string, user: JWTPayload): Promise<Reserva[]> {
     if (user.rol !== "anfitrion" && user.rol !== "admin") {
       throw new Error("No tienes permisos para ver las reservas de esta ruta");
@@ -698,97 +717,6 @@ export class PostgresStorage implements IStorage {
   // ADMIN METHODS
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users);
-  }
-
-  async suspenderUsuario(userId: string, motivo: string): Promise<User | undefined> {
-    const result = await db
-      .update(users)
-      .set({ suspendido: true, motivoSuspension: motivo })
-      .where(eq(users.id, userId))
-      .returning();
-    return result[0];
-  }
-
-  async restaurarUsuario(userId: string): Promise<User | undefined> {
-    const result = await db
-      .update(users)
-      .set({ suspendido: false, motivoSuspension: null })
-      .where(eq(users.id, userId))
-      .returning();
-    return result[0];
-  }
-
-  async cambiarRolUsuario(userId: string, nuevoRol: string): Promise<User | undefined> {
-    const result = await db
-      .update(users)
-      .set({ rol: nuevoRol })
-      .where(eq(users.id, userId))
-      .returning();
-    return result[0];
-  }
-
-  async ocultarRuta(rutaId: string): Promise<Ruta | undefined> {
-    const result = await db
-      .update(rutas)
-      .set({ oculta: true })
-      .where(eq(rutas.id, rutaId))
-      .returning();
-    return result[0];
-  }
-
-  async getAuditLogs(): Promise<AuditLog[]> {
-    return db
-      .select()
-      .from(auditLogs)
-      .orderBy(desc(auditLogs.createdAt));
-  }
-
-  async registrarAuditLog(
-    userId: string,
-    accion: string,
-    entidad: string,
-    entidadId: string,
-    detalles: any
-  ): Promise<AuditLog> {
-    const result = await db
-      .insert(auditLogs)
-      .values({
-        userId,
-        accion,
-        entidad,
-        entidadId,
-        detalles: JSON.stringify(detalles),
-      })
-      .returning();
-    return result[0];
-  }
-
-  async getNotificaciones(userId: string): Promise<Notificacion[]> {
-    return db
-      .select()
-      .from(notificaciones)
-      .where(eq(notificaciones.usuarioId, userId))
-      .orderBy(desc(notificaciones.createdAt));
-  }
-
-  async crearNotificacion(
-    usuarioId: string,
-    tipo: string,
-    titulo: string,
-    descripcion: string,
-    detalles: any
-  ): Promise<Notificacion> {
-    const result = await db
-      .insert(notificaciones)
-      .values({
-        usuarioId,
-        tipo,
-        titulo,
-        descripcion,
-        detalles: JSON.stringify(detalles),
-      })
-      .returning();
-    return result[0];
   }
 }
 
