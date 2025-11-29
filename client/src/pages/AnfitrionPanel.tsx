@@ -19,7 +19,15 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { MapPin, Users, DollarSign, Plus, Trash2, Edit, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { MapPin, Users, DollarSign, Plus, Trash2, Edit, CheckCircle, XCircle, Clock, Star } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -31,9 +39,8 @@ interface Ruta {
   destino: string;
   precio: number;
   precioPorPersona: number;
-  dificultad: string;
   duracion: string;
-  duracionHoras: number;
+  duracionMinutos: number;
   cupoMaximo: number;
   resenas: number;
   rating: string;
@@ -55,6 +62,16 @@ interface Reserva {
   createdAt: string;
 }
 
+interface Calificacion {
+  id: string;
+  reservaId: string;
+  rutaId: string;
+  userId: string;
+  rating: number;
+  comentario?: string;
+  createdAt: string;
+}
+
 const estadoColors = {
   pendiente: "bg-yellow-100 text-yellow-800 border-yellow-200",
   confirmada: "bg-green-100 text-green-800 border-green-200",
@@ -69,6 +86,12 @@ export default function AnfitrionPanel() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingRuta, setEditingRuta] = useState<Ruta | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [dialogState, setDialogState] = useState<{
+    type: "rechazar" | "eliminar" | null;
+    reservaId?: string;
+    rutaId?: string;
+  }>({ type: null });
+  const [selectedRutaIdForRating, setSelectedRutaIdForRating] = useState<string | null>(null);
 
   const { 
     data: misRutas, 
@@ -82,6 +105,11 @@ export default function AnfitrionPanel() {
   const { data: reservasDeRutas, isLoading: reservasLoading } = useQuery<Reserva[]>({
     queryKey: ["/api", "reservas"],
     enabled: isAuthenticated && isAnfitrion,
+  });
+
+  const { data: calificacionesDeRuta, isLoading: calificacionesLoading } = useQuery<Calificacion[]>({
+    queryKey: ["/api/calificaciones/ruta", selectedRutaIdForRating],
+    enabled: isAuthenticated && isAnfitrion && !!selectedRutaIdForRating,
   });
 
   useEffect(() => {
@@ -123,14 +151,16 @@ export default function AnfitrionPanel() {
     .reduce((sum, r) => sum + r.totalPagado, 0);
 
   const handleDeleteRuta = async (rutaId: string) => {
-    if (!confirm("¿Estás seguro de que quieres eliminar esta ruta?")) {
-      return;
-    }
+    setDialogState({ type: "eliminar", rutaId });
+  };
+
+  const confirmDeleteRuta = async () => {
+    if (!dialogState.rutaId) return;
 
     try {
-      setDeletingId(rutaId);
+      setDeletingId(dialogState.rutaId);
       const token = localStorage.getItem("auth_token");
-      const response = await fetch(`/api/rutas/${rutaId}`, {
+      const response = await fetch(`/api/rutas/${dialogState.rutaId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -148,6 +178,7 @@ export default function AnfitrionPanel() {
       });
 
       refetchRutas();
+      setDialogState({ type: null });
     } catch (error: any) {
       toast({
         title: "Error",
@@ -291,20 +322,26 @@ export default function AnfitrionPanel() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="reservas">Todas las Reservas</TabsTrigger>
+              <TabsTrigger value="calificaciones">Calificaciones</TabsTrigger>
             </TabsList>
 
             <TabsContent value="rutas" className="space-y-4">
               <div className="flex justify-end mb-4">
-                <RutaForm 
-                  rutaToEdit={editingRuta}
-                  isOpen={isFormOpen}
-                  onOpenChange={handleOpenChangeForm}
-                  onSuccess={() => {
-                    refetchRutas();
-                    handleCloseForm();
-                  }}
-                />
+                <Button onClick={() => setIsFormOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear Nueva Ruta
+                </Button>
               </div>
+
+              <RutaForm 
+                rutaToEdit={editingRuta}
+                isOpen={isFormOpen}
+                onOpenChange={handleCloseForm}
+                onSuccess={() => {
+                  refetchRutas();
+                  handleCloseForm();
+                }}
+              />
 
               <Card>
                 <CardHeader>
@@ -320,15 +357,10 @@ export default function AnfitrionPanel() {
                   ) : misRutasFiltradas.length === 0 ? (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground mb-4">No tienes rutas aún</p>
-                      <RutaForm 
-                        rutaToEdit={null}
-                        isOpen={isFormOpen}
-                        onOpenChange={handleOpenChangeForm}
-                        onSuccess={() => {
-                          refetchRutas();
-                          handleCloseForm();
-                        }}
-                      />
+                      <Button onClick={() => setIsFormOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Crear tu primera ruta
+                      </Button>
                     </div>
                   ) : (
                     <div className="space-y-4">
@@ -372,14 +404,14 @@ export default function AnfitrionPanel() {
                             </div>
                             <div className="flex gap-4 text-sm">
                               <div>
-                                <Badge variant="secondary">{ruta.dificultad}</Badge>
+
                               </div>
                               <div>
                                 <span className="font-medium">${ruta.precioPorPersona.toLocaleString()}</span>
                                 <span className="text-muted-foreground"> por persona</span>
                               </div>
                               <div>
-                                <span className="text-muted-foreground">{ruta.duracionHoras}h</span>
+                                <span className="text-muted-foreground">{Math.floor(ruta.duracionMinutos / 60)}h {ruta.duracionMinutos % 60}min</span>
                               </div>
                               <div>
                                 <Badge variant={ruta.disponible ? "default" : "secondary"}>
@@ -446,11 +478,7 @@ export default function AnfitrionPanel() {
                                 size="sm"
                                 variant="outline"
                                 className="flex-1 text-red-600 border-red-600 hover:bg-red-50"
-                                onClick={() => {
-                                  if (confirm("¿Está seguro de rechazar esta reserva?")) {
-                                    handleActualizarReserva(reserva.id, "cancelada");
-                                  }
-                                }}
+                                onClick={() => setDialogState({ type: "rechazar", reservaId: reserva.id })}
                               >
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Rechazar
@@ -525,9 +553,152 @@ export default function AnfitrionPanel() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="calificaciones" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Calificaciones Recibidas</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {misRutasFiltradas.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No tienes rutas aún
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-6 space-y-2">
+                        <label className="text-sm font-medium">Selecciona una ruta para ver calificaciones:</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {misRutasFiltradas.map((ruta) => (
+                            <Button
+                              key={ruta.id}
+                              variant={selectedRutaIdForRating === ruta.id ? "default" : "outline"}
+                              onClick={() => setSelectedRutaIdForRating(ruta.id)}
+                              className="justify-start"
+                            >
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {ruta.nombre} ({ruta.resenas})
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {selectedRutaIdForRating && (
+                        <div className="space-y-4">
+                          {calificacionesLoading ? (
+                            <div className="space-y-4">
+                              {[...Array(3)].map((_, i) => (
+                                <Skeleton key={i} className="h-24" />
+                              ))}
+                            </div>
+                          ) : calificacionesDeRuta && calificacionesDeRuta.length > 0 ? (
+                            <div className="space-y-4">
+                              {calificacionesDeRuta.map((cal) => (
+                                <div key={cal.id} className="border rounded-lg p-4 bg-gradient-to-r from-yellow-50 to-orange-50">
+                                  <div className="flex items-start justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          size={16}
+                                          className={i < cal.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"}
+                                        />
+                                      ))}
+                                      <span className="font-medium text-sm ml-2">
+                                        {cal.rating}/5
+                                      </span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(cal.createdAt), "dd/MM/yyyy HH:mm")}
+                                    </span>
+                                  </div>
+                                  {cal.comentario && (
+                                    <p className="text-sm text-gray-700 italic">
+                                      "{cal.comentario}"
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 text-muted-foreground">
+                              Esta ruta aún no tiene calificaciones
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
         </div>
       </main>
+
+      {/* Dialog para rechazar reserva */}
+      <Dialog open={dialogState.type === "rechazar"} onOpenChange={(open) => !open && setDialogState({ type: null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <XCircle className="h-5 w-5" />
+              Rechazar Reserva
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas rechazar esta reserva? Esta acción no se puede deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDialogState({ type: null })}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (dialogState.reservaId) {
+                  handleActualizarReserva(dialogState.reservaId, "cancelada");
+                  setDialogState({ type: null });
+                }
+              }}
+            >
+              Rechazar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para eliminar ruta */}
+      <Dialog open={dialogState.type === "eliminar"} onOpenChange={(open) => !open && setDialogState({ type: null })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Eliminar Ruta
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas eliminar esta ruta? Esta acción no se puede deshacer y se eliminarán todas las reservas asociadas.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setDialogState({ type: null })}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteRuta}
+              disabled={deletingId !== null}
+            >
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Footer />
     </div>

@@ -9,7 +9,6 @@ import heroImage from "@assets/generated_images/Coffee_plantation_hero_image_6c3
 export default function Hero() {
   const [, setLocation] = useLocation();
   const [destino, setDestino] = useState("todos");
-  const [dificultad, setDificultad] = useState("todas");
 
   const handleSearch = () => {
     setLocation("/rutas");
@@ -34,7 +33,7 @@ export default function Hero() {
         </div>
 
         <Card className="max-w-4xl mx-auto p-6 bg-background/95 backdrop-blur-md border-none shadow-xl">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">Destino</label>
               <Select value={destino} onValueChange={setDestino}>
@@ -44,24 +43,9 @@ export default function Hero() {
                 <SelectContent>
                   <SelectItem value="todos">Todos los destinos</SelectItem>
                   <SelectItem value="salento">Salento</SelectItem>
-                  <SelectItem value="cocora">Valle de Cocora</SelectItem>
                   <SelectItem value="filandia">Filandia</SelectItem>
                   <SelectItem value="hacienda">Haciendas Cafeteras</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium mb-2 block">Dificultad</label>
-              <Select value={dificultad} onValueChange={setDificultad}>
-                <SelectTrigger data-testid="select-difficulty">
-                  <SelectValue placeholder="Nivel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="facil">Fácil</SelectItem>
-                  <SelectItem value="moderado">Moderado</SelectItem>
-                  <SelectItem value="avanzado">Avanzado</SelectItem>
+                  <SelectItem value="sevilla">Sevilla</SelectItem>
                 </SelectContent>
               </Select>
             </div>

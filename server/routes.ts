@@ -14,6 +14,7 @@ import {
   loginSchema,
   insertRutaSchema,
   insertReservaSchema,
+  insertCalificacionSchema,
 } from "@shared/schema";
 
 // RN-11: Middleware para verificar que el usuario no esté suspendido
@@ -99,10 +100,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Rutas Routes
   app.get("/api/rutas", async (req, res) => {
     try {
-      const { destino, dificultad, precioMax, q, tag } = req.query;
+      const { destino, precioMax, q, tag } = req.query;
       const rutas = await storage.getAllRutas({
         destino: destino as string,
-        dificultad: dificultad as string,
         precioMax: precioMax ? parseInt(precioMax as string) : undefined,
         q: q as string,
         tag: tag as string,
@@ -129,17 +129,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
+    upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
     async (req, res) => {
       try {
-        const validatedData = insertRutaSchema.parse(req.body);
+        // Validar datos básicos
+        const data = JSON.parse(req.body.data || "{}");
+        const validatedData = insertRutaSchema.parse(data);
+
+        // Preparar URLs de imágenes - con .fields(), los archivos están en req.files['imagen']
+        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        const imagenUrls = imagenesSubidas.map(f => `/uploads/${f.filename}`);
+        const allImagens = [...imagenUrls, ...(data.imagenes || [])];
+        const imagenUrl = allImagens[0] || validatedData.imagenUrl;
 
         const ruta = await storage.createRuta({
           ...validatedData,
+          imagenUrl,
+          imagenes: allImagens,
           anfitrionId: req.user!.userId, // El anfitrión es quien sube
         });
 
         res.status(201).json(ruta);
       } catch (error: any) {
+        // Limpiar archivos si hay error
+        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        if (imagenesSubidas.length > 0) {
+          const fs = await import("fs").then(m => m.promises);
+          for (const file of imagenesSubidas) {
+            try {
+              await fs.unlink(file.path);
+            } catch {}
+          }
+        }
         res.status(400).json({ error: error.message || "Error al crear ruta" });
       }
     }
@@ -149,28 +170,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/rutas/:id",
     authenticate,
     authorizeRole(["admin", "anfitrion"]),
+    upload.fields([{ name: 'imagen', maxCount: 5 }, { name: 'data', maxCount: 1 }]),
     async (req, res) => {
       try {
         // Obtener ruta actual
         const rutaActual = await storage.getRuta(req.params.id);
         if (!rutaActual) {
+          const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+          if (imagenesSubidas.length > 0) {
+            const fs = await import("fs").then(m => m.promises);
+            for (const file of imagenesSubidas) {
+              try {
+                await fs.unlink(file.path);
+              } catch {}
+            }
+          }
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
 
         // Verificar permisos - anfitrión solo puede actualizar sus propias rutas
         if (req.user!.rol === "anfitrion" && rutaActual.anfitrionId !== req.user!.userId) {
+          const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+          if (imagenesSubidas.length > 0) {
+            const fs = await import("fs").then(m => m.promises);
+            for (const file of imagenesSubidas) {
+              try {
+                await fs.unlink(file.path);
+              } catch {}
+            }
+          }
           return res.status(403).json({ error: "No tienes permisos para actualizar esta ruta" });
         }
 
-        // Validar datos
-        const validatedData = insertRutaSchema.partial().parse(req.body);
+        // Preparar datos para actualizar
+        const data = req.body.data ? JSON.parse(req.body.data) : req.body;
+        const imagenesSubidas = (req.files?.imagen || []) as Express.Multer.File[];
+        
+        // Si hay nuevas imágenes, usar las nuevas; sino mantener las anteriores
+        if (imagenesSubidas.length > 0) {
+          const newImageUrls = imagenesSubidas.map(f => `/uploads/${f.filename}`);
+          const existingImages = data.imagenes?.filter((img: string) => !img.startsWith('blob:') && !img.startsWith('data:')) || [];
+          data.imagenes = [...newImageUrls, ...existingImages];
+          data.imagenUrl = data.imagenes[0];
 
-        const ruta = await storage.updateRuta(req.params.id, validatedData);
+          // Eliminar imágenes anteriores locales que no estén en la nueva lista
+          if (rutaActual.imagenes && rutaActual.imagenes.length > 0) {
+            const fs = await import("fs").then(m => m.promises);
+            for (const oldImg of rutaActual.imagenes) {
+              if (oldImg.startsWith("/uploads/") && !data.imagenes.includes(oldImg)) {
+                const oldImagePath = `client/public${oldImg}`;
+                try {
+                  await fs.unlink(oldImagePath);
+                } catch {}
+              }
+            }
+          }
+        }
+
+        const ruta = await storage.updateRuta(req.params.id, data);
         if (!ruta) {
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
         res.json(ruta);
       } catch (error: any) {
+        // Limpiar archivos si hay error
+        if (req.files) {
+          const fs = await import("fs").then(m => m.promises);
+          for (const file of req.files) {
+            try {
+              await fs.unlink(file.path);
+            } catch {}
+          }
+        }
         res.status(400).json({ error: error.message || "Error al actualizar ruta" });
       }
     }
@@ -235,12 +306,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get(
     "/api/reservas",
     authenticate,
-    authorizeRole(["admin"]),
     async (req, res) => {
       try {
-        const reservas = await storage.getAllReservas();
-        res.json(reservas);
+        console.log("🔵 GET /api/reservas - Usuario:", req.user!.userId, "Rol:", req.user!.rol);
+        
+        // Si es admin, obtiene todas las reservas
+        if (req.user!.rol === "admin") {
+          const reservas = await storage.getAllReservas();
+          console.log("🔵 Admin - Total reservas:", reservas.length);
+          return res.json(reservas);
+        }
+        
+        // Si es anfitrión, obtiene solo las reservas de sus rutas
+        if (req.user!.rol === "anfitrion") {
+          const rutasDelAnfitrion = await storage.getAllRutas({});
+          console.log("🔵 Total rutas en BD:", rutasDelAnfitrion.length);
+          
+          const misRutas = rutasDelAnfitrion.filter(r => r.anfitrionId === req.user!.userId);
+          console.log("🔵 Mis rutas como anfitrión:", misRutas.length, "IDs:", misRutas.map(r => r.id));
+          
+          const misRutasIds = misRutas.map(r => r.id);
+          
+          const todasReservas = await storage.getAllReservas();
+          console.log("🔵 Total reservas en BD:", todasReservas.length);
+          
+          const reservasDelAnfitrion = todasReservas.filter(r => misRutasIds.includes(r.rutaId));
+          console.log("🔵 Reservas del anfitrión:", reservasDelAnfitrion.length);
+          
+          return res.json(reservasDelAnfitrion);
+        }
+        
+        // Para otros roles, retornar error
+        return res.status(403).json({ error: "No tienes permisos para acceder a las reservas" });
       } catch (error: any) {
+        console.error("🔴 Error en GET /api/reservas:", error);
         res.status(500).json({ error: error.message || "Error al obtener reservas" });
       }
     }
@@ -389,319 +488,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  // DELETE para cancelar reserva (turistas pueden cancelar sus propias)
-  app.delete(
-    "/api/reservas/:id",
-    authenticate,
-    async (req, res) => {
-      try {
-        const reserva = await storage.cancelarReserva(req.params.id, req.user!);
-        if (!reserva) {
-          return res.status(404).json({ error: "Reserva no encontrada" });
-        }
+  // DELETE para cancelar reserva (solo turistas, solo si está pendiente)
+  app.delete("/api/reservas/:id", authenticate, async (req, res) => {
+    try {
+      console.log("🔵 DELETE /api/reservas/:id - ID:", req.params.id);
+      const reserva = await storage.getReserva(req.params.id);
+      console.log("🔵 Reserva encontrada:", reserva);
+      
+      if (!reserva) {
+        return res.status(404).json({ error: "Reserva no encontrada" });
+      }
 
-        res.json({ message: "Reserva cancelada", reserva });
-      } catch (error: any) {
-        const statusCode = error.message.includes("permisos") ? 403 
-          : error.message.includes("no encontrada") ? 404 
-          : 400;
-        res.status(statusCode).json({ 
-          error: error.message || "Error al cancelar reserva" 
+      // Verificar que la reserva pertenece al usuario
+      if (reserva.userId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para cancelar esta reserva" });
+      }
+
+      // Verificar que la reserva está pendiente
+      if (reserva.estado !== "pendiente") {
+        return res.status(400).json({ 
+          error: "Solo puedes cancelar reservas que están en estado pendiente" 
         });
       }
+
+      // Cambiar estado a cancelada directamente (sin verificar roles)
+      const reservaCancelada = await storage.updateReservaEstado(
+        req.params.id, 
+        "cancelada"
+      );
+      console.log("🔵 Reserva cancelada:", reservaCancelada);
+
+      return res.json(reservaCancelada);
+    } catch (error: any) {
+      console.error("🔴 Error al cancelar reserva:", error);
+      return res.status(500).json({ 
+        error: error.message || "Error al cancelar reserva" 
+      });
     }
-  );
+  });
 
-  // ==================== NUEVOS ENDPOINTS ====================
-
-  // RN-09: Check-in / Asistencia
-  app.post(
-    "/api/reservas/:id/checkin",
-    authenticate,
-    authorizeRole(["anfitrion", "guia", "admin"]),
-    async (req, res) => {
-      try {
-        const { ubicacion } = req.body;
-        
-        const reserva = await storage.getReservaById(req.params.id);
-        
-        if (!reserva) {
-          return res.status(404).json({ error: "Reserva no encontrada" });
-        }
-
-        if (reserva.estado !== "confirmada") {
-          return res.status(400).json({ error: "El check-in solo se puede realizar en reservas confirmadas" });
-        }
-
-        const checkin = await storage.crearCheckin(req.params.id, req.user!.userId, ubicacion);
-        await storage.registrarAuditLog(
-          req.user!.userId,
-          "checkin",
-          "reserva",
-          req.params.id,
-          { ubicacion }
-        );
-
-        res.status(201).json(checkin);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al registrar check-in" });
+  // POST para crear calificación
+  app.post("/api/calificaciones", authenticate, async (req, res) => {
+    try {
+      const validatedData = insertCalificacionSchema.parse(req.body);
+      
+      // Verificar que la reserva existe y pertenece al usuario
+      const reserva = await storage.getReserva(validatedData.reservaId);
+      if (!reserva) {
+        return res.status(404).json({ error: "Reserva no encontrada" });
       }
-    }
-  );
 
-  // RN-09: Obtener check-ins de una reserva
-  app.get(
-    "/api/reservas/:id/checkins",
-    authenticate,
-    async (req, res) => {
-      try {
-        const checkins = await storage.obtenerCheckinsDeReserva(req.params.id);
-        res.json(checkins);
-      } catch (error: any) {
-        res.status(500).json({ error: error.message || "Error al obtener check-ins" });
+      if (reserva.userId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para calificar esta reserva" });
       }
-    }
-  );
 
-  // RN-12: Notificaciones - Obtener
-  app.get(
-    "/api/notificaciones",
-    authenticate,
-    async (req, res) => {
-      try {
-        const notificaciones = await storage.obtenerNotificaciones(req.user!.userId);
-        res.json(notificaciones);
-      } catch (error: any) {
-        res.status(500).json({ error: error.message || "Error al obtener notificaciones" });
+      // Crear calificación
+      const calificacion = await storage.createCalificacion({
+        ...validatedData,
+        userId: req.user!.userId,
+      });
+
+      // Recalcular rating de la ruta
+      await storage.updateRutaRating(validatedData.rutaId);
+
+      res.json(calificacion);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Error al crear calificación" });
+    }
+  });
+
+  // GET para obtener calificaciones de una ruta (solo anfitrion dueño)
+  app.get("/api/calificaciones/ruta/:rutaId", authenticate, async (req, res) => {
+    try {
+      const ruta = await storage.getRuta(req.params.rutaId);
+      if (!ruta) {
+        return res.status(404).json({ error: "Ruta no encontrada" });
       }
-    }
-  );
 
-  // RN-12: Notificaciones - Marcar como leída
-  app.patch(
-    "/api/notificaciones/:id/leer",
-    authenticate,
-    async (req, res) => {
-      try {
-        const notificacion = await storage.marcarNotificacionLeida(req.params.id);
-        if (!notificacion) {
-          return res.status(404).json({ error: "Notificación no encontrada" });
-        }
-        res.json(notificacion);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al marcar notificación como leída" });
+      // Verificar que el usuario es el dueño de la ruta
+      if (ruta.anfitrionId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para ver estas calificaciones" });
       }
+
+      const calificaciones = await storage.getCalificacionesPorRuta(req.params.rutaId);
+      res.json(calificaciones);
+    } catch (error: any) {
+      res.status(400).json({ error: error.message || "Error al obtener calificaciones" });
     }
-  );
+  });
 
-  // RN-06: Calificaciones - Crear
-  app.post(
-    "/api/reservas/:id/calificar",
-    authenticate,
-    async (req, res) => {
-      try {
-        const { puntuacion, comentario } = req.body;
-
-        if (!puntuacion || puntuacion < 1 || puntuacion > 5) {
-          return res.status(400).json({ error: "La puntuación debe estar entre 1 y 5" });
-        }
-
-        const reserva = await storage.getReservaById(req.params.id);
-        
-        if (!reserva) {
-          return res.status(404).json({ error: "Reserva no encontrada" });
-        }
-
-        if (reserva.userId !== req.user!.userId) {
-          return res.status(403).json({ error: "Solo el turista de la reserva puede calificar" });
-        }
-
-        const calificacion = await storage.crearCalificacion(
-          req.params.id,
-          req.user!.userId,
-          puntuacion,
-          comentario
-        );
-
-        await storage.registrarAuditLog(
-          req.user!.userId,
-          "calificar",
-          "reserva",
-          req.params.id,
-          { puntuacion, comentario }
-        );
-
-        res.status(201).json(calificacion);
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al calificar" });
+  // GET para verificar si existe calificación para una reserva
+  app.get("/api/calificaciones/reserva/:reservaId", authenticate, async (req, res) => {
+    try {
+      const reserva = await storage.getReserva(req.params.reservaId);
+      if (!reserva) {
+        return res.status(404).json({ error: "Reserva no encontrada" });
       }
-    }
-  );
 
-  // RN-11: Admin - Suspender usuario
-  app.put(
-    "/api/admin/usuarios/:id/suspender",
-    authenticate,
-    authorizeRole(["admin"]),
-    async (req, res) => {
-      try {
-        const { motivo } = req.body;
-        if (!motivo) {
-          return res.status(400).json({ error: "El motivo de suspensión es requerido" });
-        }
-
-        const usuarioSuspendido = await storage.suspenderUsuario(req.params.id, motivo);
-        if (!usuarioSuspendido) {
-          return res.status(404).json({ error: "Usuario no encontrado" });
-        }
-
-        await storage.registrarAuditLog(
-          req.user!.userId,
-          "suspender",
-          "usuario",
-          req.params.id,
-          { motivo }
-        );
-
-        await storage.crearNotificacion(
-          req.params.id,
-          "suspension",
-          "Tu cuenta ha sido suspendida",
-          `Motivo: ${motivo}`,
-          { motivo }
-        );
-
-        res.json({ message: "Usuario suspendido exitosamente", usuario: usuarioSuspendido });
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al suspender usuario" });
+      if (reserva.userId !== req.user!.userId) {
+        return res.status(403).json({ error: "No tienes permisos para ver esto" });
       }
+
+      const calificacion = await storage.getCalificacionPorReserva(req.params.reservaId);
+      // Retornar calificación si existe, o null si no existe
+      return res.json(calificacion || null);
+    } catch (error: any) {
+      console.error("Error en GET /api/calificaciones/reserva:", error);
+      res.status(500).json({ error: error.message || "Error al obtener calificación" });
     }
-  );
-
-  // RN-11: Admin - Restaurar usuario
-  app.put(
-    "/api/admin/usuarios/:id/restaurar",
-    authenticate,
-    authorizeRole(["admin"]),
-    async (req, res) => {
-      try {
-        const usuarioRestaurado = await storage.restaurarUsuario(req.params.id);
-        if (!usuarioRestaurado) {
-          return res.status(404).json({ error: "Usuario no encontrado" });
-        }
-
-        await storage.registrarAuditLog(
-          req.user!.userId,
-          "actualizar",
-          "usuario",
-          req.params.id,
-          { accion: "restaurar" }
-        );
-
-        await storage.crearNotificacion(
-          req.params.id,
-          "rol_validado",
-          "Tu cuenta ha sido restaurada",
-          "Ahora puedes volver a usar la plataforma"
-        );
-
-        res.json({ message: "Usuario restaurado exitosamente", usuario: usuarioRestaurado });
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al restaurar usuario" });
-      }
-    }
-  );
-
-  // RN-11: Admin - Ocultar ruta
-  app.put(
-    "/api/admin/rutas/:id/ocultar",
-    authenticate,
-    authorizeRole(["admin"]),
-    async (req, res) => {
-      try {
-        const ruta = await storage.ocultarRuta(req.params.id);
-        if (!ruta) {
-          return res.status(404).json({ error: "Ruta no encontrada" });
-        }
-
-        await storage.registrarAuditLog(
-          req.user!.userId,
-          "actualizar",
-          "ruta",
-          req.params.id,
-          { estado: "OCULTA" }
-        );
-
-        res.json({ message: "Ruta ocultada exitosamente", ruta });
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al ocultar ruta" });
-      }
-    }
-  );
-
-  // RN-14: Admin - Validar rol de usuario
-  app.put(
-    "/api/admin/usuarios/:id/validar-rol",
-    authenticate,
-    authorizeRole(["admin"]),
-    async (req, res) => {
-      try {
-        const usuario = await storage.getUser(req.params.id);
-        if (!usuario) {
-          return res.status(404).json({ error: "Usuario no encontrado" });
-        }
-
-        if (usuario.rol === "turista") {
-          return res.status(400).json({ error: "Los turistas no necesitan validación de rol" });
-        }
-
-        const usuarioValidado = await storage.validarRolUsuario(req.params.id);
-
-        await storage.registrarAuditLog(
-          req.user!.userId,
-          "validar_rol",
-          "usuario",
-          req.params.id,
-          { rol: usuario.rol }
-        );
-
-        await storage.crearNotificacion(
-          req.params.id,
-          "rol_validado",
-          "Tu rol ha sido validado",
-          `Tu rol de ${usuario.rol} ha sido aprobado por un administrador`
-        );
-
-        res.json({ message: "Rol validado exitosamente", usuario: usuarioValidado });
-      } catch (error: any) {
-        res.status(400).json({ error: error.message || "Error al validar rol" });
-      }
-    }
-  );
-
-  // RN-15: Admin - Obtener logs de auditoría
-  app.get(
-    "/api/admin/audit-logs",
-    authenticate,
-    authorizeRole(["admin"]),
-    async (req, res) => {
-      try {
-        const { usuarioId, accion, entidad, desde, hasta } = req.query;
-
-        const logs = await storage.obtenerAuditLogs({
-          usuarioId: usuarioId as string | undefined,
-          accion: accion as string | undefined,
-          entidad: entidad as string | undefined,
-          desde: desde ? new Date(desde as string) : undefined,
-          hasta: hasta ? new Date(hasta as string) : undefined,
-        });
-
-        res.json(logs);
-      } catch (error: any) {
-        res.status(500).json({ error: error.message || "Error al obtener logs de auditoría" });
-      }
-    }
-  );
+  });
 
   const httpServer = createServer(app);
 

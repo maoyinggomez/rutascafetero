@@ -26,7 +26,6 @@ interface Ruta {
 
 export default function Rutas() {
   const [destinoFilter, setDestinoFilter] = useState("todos");
-  const [dificultadFilter, setDificultadFilter] = useState("todas");
   const [precioMax, setPrecioMax] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -41,7 +40,6 @@ export default function Rutas() {
 
   const clearFilters = () => {
     setDestinoFilter("todos");
-    setDificultadFilter("todas");
     setPrecioMax("");
     setSearchQuery("");
     setSelectedTags([]);
@@ -50,12 +48,11 @@ export default function Rutas() {
   const queryParams = useMemo(() => {
     const params: Record<string, string> = {};
     if (destinoFilter && destinoFilter !== "todos") params.destino = destinoFilter;
-    if (dificultadFilter && dificultadFilter !== "todas") params.dificultad = dificultadFilter;
     if (precioMax) params.precioMax = precioMax;
     if (searchQuery) params.q = searchQuery;
     if (selectedTags.length > 0) params.tag = selectedTags.join(",");
     return params;
-  }, [destinoFilter, dificultadFilter, precioMax, searchQuery, selectedTags]);
+  }, [destinoFilter, precioMax, searchQuery, selectedTags]);
 
   const { data: rutas, isLoading } = useQuery<Ruta[]>({
     queryKey: ["/api/rutas", queryParams],
@@ -104,7 +101,7 @@ export default function Rutas() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">
                   <Filter className="inline h-3.5 w-3.5 mr-1" />
@@ -121,27 +118,12 @@ export default function Rutas() {
                     <SelectItem value="Manizales">Manizales</SelectItem>
                     <SelectItem value="Pereira">Pereira</SelectItem>
                     <SelectItem value="Montenegro">Montenegro</SelectItem>
-                    <SelectItem value="Valle de Cocora">Valle de Cocora</SelectItem>
+                    <SelectItem value="Sevilla">Sevilla</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <label className="text-sm font-medium mb-2 block">Dificultad</label>
-                <Select value={dificultadFilter} onValueChange={setDificultadFilter}>
-                  <SelectTrigger data-testid="select-filter-difficulty">
-                    <SelectValue placeholder="Todas" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas</SelectItem>
-                    <SelectItem value="Fácil">Fácil</SelectItem>
-                    <SelectItem value="Moderado">Moderado</SelectItem>
-                    <SelectItem value="Avanzado">Avanzado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="col-span-1 sm:col-span-2">
                 <label className="text-sm font-medium mb-2 block">Precio máximo</label>
                 <Input
                   type="number"

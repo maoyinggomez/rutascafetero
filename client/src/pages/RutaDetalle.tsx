@@ -5,6 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/lib/auth";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import ImageCarousel from "@/components/ImageCarousel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,10 +22,11 @@ interface Ruta {
   nombre: string;
   descripcion: string;
   destino: string;
-  dificultad: string;
   duracion: string;
+  duracionMinutos: number;
   precio: number;
   imagenUrl: string;
+  imagenes?: string[];
   cupoMaximo: number;
   rating: string;
   resenas: number;
@@ -41,6 +43,7 @@ export default function RutaDetalle() {
   const queryClient = useQueryClient();
   
   const [fechaRuta, setFechaRuta] = useState("");
+  const [horaInicio, setHoraInicio] = useState("08:00");
   const [cantidadPersonas, setCantidadPersonas] = useState(1);
 
   const { data: ruta, isLoading } = useQuery<Ruta>({
@@ -97,13 +100,35 @@ const handleReservar = (e: React.FormEvent) => {
     return;
   }
 
+  if (!horaInicio) {
+    toast({
+      title: "Hora requerida",
+      description: "Por favor selecciona la hora de inicio",
+      variant: "destructive",
+    });
+    return;
+  }
+
   if (!ruta) return;
 
   const precioUnitario = ruta.precioPorPersona || ruta.precio;
 
+  // Convertir la fecha string a objeto Date con la hora seleccionada
+  const fechaDate = new Date(fechaRuta);
+  const [horas, minutos] = horaInicio.split(":").map(Number);
+  fechaDate.setHours(horas, minutos, 0, 0);
+
+  // Calcular hora de fin basada en duracionMinutos
+  const horaFinDate = new Date(fechaDate);
+  horaFinDate.setMinutes(horaFinDate.getMinutes() + ruta.duracionMinutos);
+  const horaFin = horaFinDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
   const reservaData = {
     rutaId: ruta.id,
-    fechaRuta: fechaRuta,
+    userId: user?.id ?? "",
+    fechaRuta: fechaDate.toISOString(),
+    horaInicio,
+    horaFin,
     cantidadPersonas: Number(cantidadPersonas),
     totalPagado: precioUnitario * cantidadPersonas,
   };
@@ -163,13 +188,14 @@ const handleReservar = (e: React.FormEvent) => {
       <Navbar />
       
       <main className="flex-1">
-        <div className="relative h-96 overflow-hidden">
-          <img
-            src={ruta.imagenUrl}
-            alt={ruta.nombre}
-            className="w-full h-full object-cover"
+        {/* Carrusel de imágenes */}
+        <div className="relative">
+          <ImageCarousel 
+            images={ruta.imagenes || [ruta.imagenUrl].filter(Boolean)}
+            title={ruta.nombre}
+            className="max-h-96"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -266,6 +292,30 @@ const handleReservar = (e: React.FormEvent) => {
                         required
                         data-testid="input-booking-date"
                       />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="horaInicio">Hora de Inicio</Label>
+                      <Input
+                        id="horaInicio"
+                        type="time"
+                        value={horaInicio}
+                        onChange={(e) => setHoraInicio(e.target.value)}
+                        required
+                      />
+                      {ruta && (
+                        <p className="text-xs text-muted-foreground">
+                          Duración: {Math.floor(ruta.duracionMinutos / 60)}h {ruta.duracionMinutos % 60}min • Hora de fin aproximada: {
+                            (() => {
+                              const [h, m] = horaInicio.split(":").map(Number);
+                              const finDate = new Date();
+                              finDate.setMinutes(m + ruta.duracionMinutos);
+                              finDate.setHours(h);
+                              return finDate.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+                            })()
+                          }
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">

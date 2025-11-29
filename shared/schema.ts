@@ -33,15 +33,15 @@ export const rutas = pgTable("rutas", {
   nombre: text("nombre").notNull(),
   descripcion: text("descripcion").notNull(),
   destino: text("destino").notNull(),
-  dificultad: dificultadEnum("dificultad").notNull(),
   duracion: text("duracion").notNull(),
   precio: integer("precio").notNull(),
   imagenUrl: text("imagen_url"),
+  imagenes: text("imagenes").array().default([]),
   cupoMaximo: integer("cupo_maximo").notNull().default(20),
   rating: decimal("rating", { precision: 2, scale: 1 }).notNull().default("4.5"),
   resenas: integer("resenas").notNull().default(0),
   anfitrionId: varchar("anfitrion_id").references(() => users.id),
-  duracionHoras: integer("duracion_horas").notNull(),
+  duracionMinutos: integer("duracion_minutos").notNull(),
   precioPorPersona: integer("precio_por_persona").notNull(),
   tags: text("tags").array(),
   puntosInteres: text("puntos_interes").array(),
@@ -54,6 +54,8 @@ export const reservas = pgTable("reservas", {
   userId: varchar("user_id").notNull().references(() => users.id),
   rutaId: varchar("ruta_id").notNull().references(() => rutas.id),
   fechaRuta: timestamp("fecha_ruta").notNull(),
+  horaInicio: text("hora_inicio"),
+  horaFin: text("hora_fin"),
   cantidadPersonas: integer("cantidad_personas").notNull(),
   estado: estadoReservaEnum("estado").notNull().default("pendiente"),
   totalPagado: integer("total_pagado").notNull(),
@@ -62,6 +64,16 @@ export const reservas = pgTable("reservas", {
   precioPorPersonaAlMomento: integer("precio_por_persona_al_momento"),
   // RN-08: Cierre automático
   cerradaAuto: boolean("cerrada_auto").notNull().default(false),
+});
+
+export const calificaciones = pgTable("calificaciones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reservaId: varchar("reserva_id").notNull().references(() => reservas.id),
+  userId: varchar("user_id").references(() => users.id),
+  rutaId: varchar("ruta_id").notNull().references(() => rutas.id),
+  rating: integer("rating").notNull(),
+  comentario: text("comentario"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -81,7 +93,9 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
   estado: true,
 }).extend({
   imagenUrl: z.string().optional(),
+  imagenes: z.array(z.string()).optional().default([]),
   anfitrionId: z.string().optional(),
+  duracionMinutos: z.number().int().min(5, "La duración mínima es 5 minutos"),
 });
 
 // Schema para crear reserva - acepta string o Date para fechaRuta y lo transforma a Date
@@ -112,6 +126,17 @@ export const insertReservaSchema = z.object({
   totalPagado: z.number()
     .positive("Total pagado debe ser un número positivo")
     .transform(v => Math.round(v)),
+  horaInicio: z.string().optional(),
+  horaFin: z.string().optional(),
+});
+
+export const insertCalificacionSchema = createInsertSchema(calificaciones).omit({
+  id: true,
+  createdAt: true,
+  userId: true,
+}).extend({
+  rating: z.number().min(1).max(5),
+  comentario: z.string().optional(),
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -158,17 +183,8 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
-// RN-06: Calificaciones (bonus - mencionado en audit)
-export const calificaciones = pgTable("calificaciones", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  reservaId: varchar("reserva_id").notNull().references(() => reservas.id).unique(),
-  usuarioId: varchar("usuario_id").notNull().references(() => users.id),
-  puntuacion: integer("puntuacion").notNull(), // 1-5
-  comentario: text("comentario"),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
-});
-
 export type Checkin = typeof checkins.$inferSelect;
 export type Notificacion = typeof notificaciones.$inferSelect;
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type Calificacion = typeof calificaciones.$inferSelect;
+export type InsertCalificacion = z.infer<typeof insertCalificacionSchema>;

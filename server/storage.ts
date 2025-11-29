@@ -8,17 +8,18 @@ import {
   type Reserva,
   type InsertReserva,
   type InsertReservaDB,
-  users,
-  rutas,
-  reservas,
-  auditLogs,
-  notificaciones,
-  checkins,
-  calificaciones,
+  type Calificacion,
+  type InsertCalificacion,
   type Notificacion,
   type AuditLog,
   type Checkin,
-  type Calificacion,
+  users,
+  rutas,
+  reservas,
+  calificaciones,
+  auditLogs,
+  notificaciones,
+  checkins,
 } from "@shared/schema";
 import { type JWTPayload } from "./auth";
 
@@ -31,7 +32,6 @@ export interface IStorage {
   // Rutas
   getAllRutas(filters?: { 
     destino?: string; 
-    dificultad?: string;
     precioMax?: number;
     q?: string;
     tag?: string;
@@ -42,6 +42,7 @@ export interface IStorage {
   deleteRuta(id: string): Promise<boolean>;
 
   // Reservas
+  getReserva(id: string): Promise<Reserva | undefined>;
   getReservasByUser(userId: string): Promise<Reserva[]>;
   getReservaById(id: string): Promise<Reserva | undefined>;
   getAllReservas(): Promise<Reserva[]>;
@@ -51,12 +52,18 @@ export interface IStorage {
     id: string,
     estado: "pendiente" | "confirmada" | "cancelada"
   ): Promise<Reserva | undefined>;
-  cambiarEstadoReserva(
+  changiarEstadoReserva(
     id: string,
     estado: "pendiente" | "confirmada" | "cancelada",
     user: JWTPayload
   ): Promise<Reserva | undefined>;
   cancelarReserva(id: string, user: JWTPayload): Promise<Reserva | undefined>;
+
+  // Calificaciones
+  createCalificacion(calificacion: InsertCalificacion & { userId: string }): Promise<Calificacion>;
+  getCalificacionPorReserva(reservaId: string): Promise<Calificacion | undefined>;
+  getCalificacionesPorRuta(rutaId: string): Promise<Calificacion[]>;
+  updateRutaRating(rutaId: string): Promise<void>;
   
   // RN-11: Moderación
   suspenderUsuario(userId: string, motivo: string): Promise<User | undefined>;
@@ -75,10 +82,6 @@ export interface IStorage {
   // RN-15: Auditoría
   registrarAuditLog(usuarioId: string | undefined, accion: string, entidad: string | undefined, entidadId: string | undefined, detalles?: any, ipAddress?: string): Promise<AuditLog>;
   obtenerAuditLogs(filtros?: { usuarioId?: string; accion?: string; entidad?: string; desde?: Date; hasta?: Date }): Promise<AuditLog[]>;
-  
-  // RN-06: Calificaciones
-  crearCalificacion(reservaId: string, usuarioId: string, puntuacion: number, comentario?: string): Promise<Calificacion>;
-  obtenerCalificacionesDeRuta(rutaId: string): Promise<Calificacion[]>;
   
   // RN-14: Validación de roles
   validarRolUsuario(userId: string): Promise<User | undefined>;
@@ -104,7 +107,6 @@ export class PostgresStorage implements IStorage {
   // Rutas
   async getAllRutas(filters?: {
     destino?: string;
-    dificultad?: string;
     precioMax?: number;
     q?: string;
     tag?: string;
@@ -128,10 +130,6 @@ export class PostgresStorage implements IStorage {
 
     if (filters?.destino && filters.destino !== "todos") {
       conditions.push(eq(rutas.destino, filters.destino));
-    }
-
-    if (filters?.dificultad && filters.dificultad !== "todas") {
-      conditions.push(eq(rutas.dificultad, filters.dificultad as any));
     }
 
     if (filters?.precioMax) {
@@ -189,6 +187,11 @@ export class PostgresStorage implements IStorage {
   }
 
   // Reservas
+  async getReserva(id: string): Promise<Reserva | undefined> {
+    const result = await db.select().from(reservas).where(eq(reservas.id, id));
+    return result[0];
+  }
+
   async getReservasByUser(userId: string): Promise<Reserva[]> {
     return db.select().from(reservas).where(eq(reservas.userId, userId));
   }
@@ -610,6 +613,54 @@ export class PostgresStorage implements IStorage {
       .where(eq(users.id, userId))
       .returning();
     return result[0];
+  }
+
+  async createCalificacion(calificacion: InsertCalificacion & { userId: string }): Promise<Calificacion> {
+    const result = await db
+      .insert(calificaciones)
+      .values(calificacion)
+      .returning();
+    return result[0];
+  }
+
+  async getCalificacionPorReserva(reservaId: string): Promise<Calificacion | undefined> {
+    const result = await db
+      .select()
+      .from(calificaciones)
+      .where(eq(calificaciones.reservaId, reservaId));
+    return result[0];
+  }
+
+  async getCalificacionesPorRuta(rutaId: string): Promise<Calificacion[]> {
+    return db
+      .select()
+      .from(calificaciones)
+      .where(eq(calificaciones.rutaId, rutaId));
+  }
+
+  async updateRutaRating(rutaId: string): Promise<void> {
+    // Obtener todas las calificaciones de la ruta
+    const rutaCalificaciones = await db
+      .select()
+      .from(calificaciones)
+      .where(eq(calificaciones.rutaId, rutaId));
+
+    if (rutaCalificaciones.length === 0) {
+      // Si no hay calificaciones, mantener el rating por defecto
+      return;
+    }
+
+    // Calcular promedio
+    const promedio = rutaCalificaciones.reduce((sum, cal) => sum + cal.rating, 0) / rutaCalificaciones.length;
+
+    // Actualizar ruta con el nuevo rating y cantidad de reseñas
+    await db
+      .update(rutas)
+      .set({
+        rating: promedio.toString(),
+        resenas: rutaCalificaciones.length,
+      })
+      .where(eq(rutas.id, rutaId));
   }
 }
 
