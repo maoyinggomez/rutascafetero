@@ -78,6 +78,8 @@ export const calificaciones = pgTable("calificaciones", {
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
+}).extend({
+  adminCode: z.string().optional(),
 });
 
 export const loginSchema = z.object({

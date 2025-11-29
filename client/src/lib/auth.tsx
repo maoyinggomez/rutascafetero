@@ -13,7 +13,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (nombre: string, email: string, password: string, rol: "turista" | "anfitrion" | "guia") => Promise<void>;
+  register: (nombre: string, email: string, password: string, rol: "turista" | "anfitrion" | "guia" | "admin", adminCode?: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -73,17 +73,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       rol,
+      adminCode,
     }: {
       nombre: string;
       email: string;
       password: string;
-      rol: "turista" | "anfitrion" | "guia";
+      rol: "turista" | "anfitrion" | "guia" | "admin";
+      adminCode?: string;
     }) => {
       return await apiRequest("POST", "/api/auth/register", {
         nombre,
         email,
         password,
         rol,
+        adminCode,
       });
     },
     onSuccess: (data) => {
@@ -106,8 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loginMutation.mutateAsync({ email, password });
   };
 
-  const register = async (nombre: string, email: string, password: string, rol: "turista" | "anfitrion" | "guia") => {
-    await registerMutation.mutateAsync({ nombre, email, password, rol });
+  const register = async (nombre: string, email: string, password: string, rol: "turista" | "anfitrion" | "guia" | "admin", adminCode?: string) => {
+    await registerMutation.mutateAsync({ nombre, email, password, rol, adminCode });
   };
 
   // Sincronizar token con localStorage

@@ -24,7 +24,8 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [rol, setRol] = useState<"turista" | "anfitrion" | "guia">("turista");
+  const [rol, setRol] = useState<"turista" | "anfitrion" | "guia" | "admin">("turista");
+  const [adminCode, setAdminCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,10 +49,30 @@ export default function Register() {
       return;
     }
 
+    // Validar código admin si intenta registrarse como admin
+    if (rol === "admin") {
+      if (!adminCode) {
+        toast({
+          title: "Error",
+          description: "Se requiere código de administrador",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (adminCode !== "admin123") {
+        toast({
+          title: "Error",
+          description: "Código de administrador inválido",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
-      await register(nombre, email, password, rol);
+      await register(nombre, email, password, rol, adminCode);
       toast({
         title: "¡Registro exitoso!",
         description: "Tu cuenta ha sido creada correctamente",
@@ -111,7 +132,7 @@ export default function Register() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rol">Tipo de Usuario</Label>
-                <Select value={rol} onValueChange={(value: "turista" | "anfitrion" | "guia") => setRol(value)}>
+                <Select value={rol} onValueChange={(value: "turista" | "anfitrion" | "guia" | "admin") => setRol(value)}>
                   <SelectTrigger data-testid="select-register-rol">
                     <SelectValue placeholder="Selecciona tu rol" />
                   </SelectTrigger>
@@ -119,9 +140,25 @@ export default function Register() {
                     <SelectItem value="turista">Turista - Explorar y reservar rutas</SelectItem>
                     <SelectItem value="anfitrion">Anfitrión - Ofrecer rutas y experiencias</SelectItem>
                     <SelectItem value="guia">Guía - Liderar tours y expediciones</SelectItem>
+                    <SelectItem value="admin">Administrador - Gestionar plataforma</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {rol === "admin" && (
+                <div className="space-y-2">
+                  <Label htmlFor="adminCode">Código de Administrador</Label>
+                  <Input
+                    id="adminCode"
+                    type="password"
+                    placeholder="Ingresa el código admin"
+                    value={adminCode}
+                    onChange={(e) => setAdminCode(e.target.value)}
+                    required
+                    data-testid="input-admin-code"
+                  />
+                  <p className="text-xs text-muted-foreground">Requerido para acceder como administrador</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="password">Contraseña</Label>
                 <Input

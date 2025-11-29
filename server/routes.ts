@@ -27,7 +27,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth Routes
   app.post("/api/auth/register", async (req, res) => {
     try {
+      const { adminCode, ...userData } = req.body;
       const validatedData = insertUserSchema.parse(req.body);
+      
+      // Validar código admin si intenta registrarse como admin
+      if (validatedData.rol === "admin") {
+        if (!adminCode || adminCode !== "admin123") {
+          return res.status(400).json({ error: "Código de administrador inválido" });
+        }
+      }
       
       const existingUser = await storage.getUserByEmail(validatedData.email);
       if (existingUser) {
