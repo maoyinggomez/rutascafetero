@@ -8,6 +8,7 @@ import {
   generateToken,
   authenticate,
   authorizeRole,
+  verifyToken,
 } from "./auth";
 import {
   insertUserSchema,
@@ -109,12 +110,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/rutas", async (req, res) => {
     try {
       const { destino, precioMax, q, tag } = req.query;
+      // Si hay token en el header, usarlo; sino, no autenticado
+      let user: any = undefined;
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+        const payload = verifyToken(token);
+        if (payload) {
+          user = payload;
+        }
+      }
+      
       const rutas = await storage.getAllRutas({
         destino: destino as string,
         precioMax: precioMax ? parseInt(precioMax as string) : undefined,
         q: q as string,
         tag: tag as string,
-      }, req.user); // Pasar el usuario para filtrar por estado
+      }, user); // Pasar el usuario para filtrar por estado
       res.json(rutas);
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Error al obtener rutas" });
