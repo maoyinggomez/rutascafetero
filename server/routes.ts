@@ -264,9 +264,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Limpiar archivos si hay error
         if (req.files) {
           const fs = await import("fs").then(m => m.promises);
-          for (const file of req.files) {
+          const filesArray: Express.Multer.File[] = Array.isArray(req.files)
+            ? (req.files as Express.Multer.File[])
+            : Object.values(req.files as { [fieldname: string]: Express.Multer.File[] }).flat();
+          for (const file of filesArray) {
             try {
-              await fs.unlink(file.path);
+              await fs.unlink((file as any).path);
             } catch {}
           }
         }
@@ -287,21 +290,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
 
+        console.log("🔵 DELETE /api/rutas/:id - Usuario:", req.user?.userId, "Rol:", req.user?.rol, "Ruta anfitrión:", ruta.anfitrionId);
+
         // Verificar permisos
         if ((req.user!.rol === "anfitrion" || req.user!.rol === "guia") && ruta.anfitrionId !== req.user!.userId) {
           return res.status(403).json({ error: "No tienes permisos para eliminar esta ruta" });
         }
 
         // RN-13: Validar que no haya reservas activas
-        const reservasActivas = await storage.getReservasPorRuta(req.params.id, req.user!).catch(() => []);
-        const reservasActuales = reservasActivas.filter(r => !["cancelada", "cerrada"].includes(r.estado));
-        if (reservasActuales.length > 0) {
-          return res.status(400).json({ 
-            error: `No se puede eliminar una ruta con ${reservasActuales.length} reserva(s) activa(s)` 
-          });
+        try {
+          const reservasActivas = await storage.getReservasPorRuta(req.params.id, req.user!);
+          const reservasActuales = reservasActivas.filter(r => !["cancelada", "cerrada"].includes(r.estado));
+          console.log("🔵 Reservas activas encontradas:", reservasActuales.length);
+          if (reservasActuales.length > 0) {
+            return res.status(400).json({ 
+              error: `No se puede eliminar una ruta con ${reservasActuales.length} reserva(s) activa(s)` 
+            });
+          }
+        } catch (e) {
+          console.log("⚠️ Error al verificar reservas:", e);
+          // Si falla la verificación, permitir eliminación de todos modos
         }
 
-        // Eliminar imagen si es local
+        // Eliminar imágenes si son locales
         if (ruta.imagenUrl && ruta.imagenUrl.startsWith("/uploads/")) {
           const fs = await import("fs").then(m => m.promises);
           const imagePath = `client/public${ruta.imagenUrl}`;
@@ -310,12 +321,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch {}
         }
 
+        // Eliminar todas las imágenes de la ruta
+        if (ruta.imagenes && ruta.imagenes.length > 0) {
+          const fs = await import("fs").then(m => m.promises);
+          for (const img of ruta.imagenes) {
+            if (img.startsWith("/uploads/")) {
+              const imagePath = `client/public${img}`;
+              try {
+                await fs.unlink(imagePath);
+              } catch {}
+            }
+          }
+        }
+
         const deleted = await storage.deleteRuta(req.params.id);
         if (!deleted) {
           return res.status(404).json({ error: "Ruta no encontrada" });
         }
         res.status(204).send();
       } catch (error: any) {
+        console.error("❌ Error en DELETE /api/rutas/:id:", error);
         res.status(500).json({ error: error.message || "Error al eliminar ruta" });
       }
     }
