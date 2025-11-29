@@ -171,21 +171,6 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
     try {
       setIsLoading(true);
 
-      // Preparar objeto de datos
-      let imagenUrl: string | undefined = undefined;
-      
-      if (selectedFile) {
-        // Convertir archivo a base64
-        imagenUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedFile);
-        });
-      } else {
-        imagenUrl = data.imagenUrl || undefined;
-      }
-
       const rutaData = {
         ...data,
         tags: data.tags.split(",").map(t => t.trim()).filter(t => t),
@@ -194,6 +179,7 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
         imagenUrl: previews[0] || "",
       };
 
+      const formData = new FormData();
       formData.append("data", JSON.stringify(rutaData));
       selectedFiles.forEach((file) => {
         formData.append("imagen", file);
@@ -207,9 +193,8 @@ export default function RutaForm({ onSuccess, isOpen, onOpenChange, rutaToEdit }
         method,
         headers: {
           "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
         },
-        body: JSON.stringify(rutaData),
+        body: formData,
       });
 
       if (!response.ok) {
