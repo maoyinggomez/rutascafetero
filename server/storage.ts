@@ -121,8 +121,8 @@ export class PostgresStorage implements IStorage {
     if (!user || user.rol === "turista") {
       // Los turistas solo ven rutas PUBLICADAS
       conditions.push(eq(rutas.estado, "PUBLICADA"));
-    } else if (user.rol === "anfitrion") {
-      // Los anfitriones ven sus rutas en cualquier estado y otras PUBLICADAS
+    } else if (user.rol === "anfitrion" || user.rol === "guia") {
+      // Los anfitriones y guías ven sus rutas en cualquier estado y otras PUBLICADAS
       conditions.push(
         or(
           eq(rutas.estado, "PUBLICADA"),
