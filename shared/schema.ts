@@ -92,12 +92,12 @@ export const insertRutaSchema = createInsertSchema(rutas).omit({
   rating: true,
   resenas: true,
   disponible: true,
-  estado: true,
 }).extend({
   imagenUrl: z.string().optional(),
   imagenes: z.array(z.string()).optional().default([]),
   anfitrionId: z.string().optional(),
   duracionMinutos: z.number().int().min(5, "La duración mínima es 5 minutos"),
+  estado: z.enum(["BORRADOR", "PUBLICADA", "OCULTA", "ELIMINADA"]).optional(),
 });
 
 // Schema para crear reserva - acepta string o Date para fechaRuta y lo transforma a Date

@@ -174,6 +174,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imagenUrl,
           imagenes: allImagens,
           anfitrionId: req.user!.userId, // El anfitrión es quien sube
+          estado: "PUBLICADA", // RN-16: Las rutas de anfitrión/guía se publican inmediatamente
         });
 
         res.status(201).json(ruta);

@@ -683,6 +683,30 @@ export class PostgresStorage implements IStorage {
     return result[0];
   }
 
+  async cambiarRolUsuario(userId: string, nuevoRol: string): Promise<User | undefined> {
+    const result = await db
+      .update(users)
+      .set({ rol: nuevoRol as any })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async getAuditLogs(): Promise<AuditLog[]> {
+    return db
+      .select()
+      .from(auditLogs)
+      .orderBy(desc(auditLogs.createdAt));
+  }
+
+  async getNotificaciones(userId: string): Promise<Notificacion[]> {
+    return db
+      .select()
+      .from(notificaciones)
+      .where(eq(notificaciones.usuarioId, userId))
+      .orderBy(desc(notificaciones.createdAt));
+  }
+
   // ADMIN METHODS
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users);
